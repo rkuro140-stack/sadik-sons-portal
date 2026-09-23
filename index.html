@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Sadik Sons — Project Passport</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Header -->
+    <header class="header">
+      <div class="brand">
+        <div class="logo-circle">
+          <img src="logo-sadik-sons.png" alt="Sadik Sons" onerror="this.style.display='none'; document.getElementById('fallback-logo').style.display='block';">
+          <span id="fallback-logo" style="display:none; font-weight:800; color:#1D4ED8;">SS</span>
+        </div>
+        <div class="brand-text">
+          <h1>SADIK SONS</h1>
+          <p>INDUSTRIAL & MEP CONTRACTING</p>
+        </div>
+      </div>
+      <div class="passport-badge">
+        <span>PASSPORT</span>
+      </div>
+    </header>
+
+    <!-- Search / Direct Code Input -->
+    <section class="search-section">
+      <div class="search-box">
+        <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="project-code-input" placeholder="Enter Project Code (e.g. SS-24-001)" autocomplete="off" autocapitalize="characters">
+        <button id="lookup-btn">Lookup</button>
+      </div>
+    </section>
+
+    <!-- Project Passport Card Container -->
+    <main class="main-content" id="passport-container">
+      <div class="loader-box" id="loading-spinner">
+        <div class="spinner"></div>
+        <p>Retrieving Project Record...</p>
+      </div>
+
+      <div class="card passport-card" id="project-card" style="display: none;">
+        <!-- Card Top Bar: Code & Status -->
+        <div class="card-header">
+          <div class="project-code-tag">
+            <span class="label">PROJECT CODE</span>
+            <span class="code" id="display-code">SS-24-001</span>
+          </div>
+          <div class="status-pill" id="status-pill">
+            <span class="status-dot"></span>
+            <span id="display-status">ACTIVE</span>
+          </div>
+        </div>
+
+        <!-- Project Title & Client -->
+        <div class="section title-section">
+          <h2 id="display-title">Tripoli Commercial Center — HVAC & Piping</h2>
+          <div class="client-badge">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span id="display-client">Al-Naseem Contracting Group</span>
+          </div>
+        </div>
+
+        <!-- Site Location -->
+        <div class="section location-section">
+          <div class="info-row">
+            <div class="icon-wrap location-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+            </div>
+            <div class="info-text">
+              <span class="meta-label">SITE LOCATION</span>
+              <span class="meta-value" id="display-site">Hai Al-Andalus, Tripoli, Libya</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dates Grid -->
+        <div class="section dates-grid">
+          <div class="date-item">
+            <span class="meta-label">START DATE</span>
+            <span class="meta-value" id="display-start">15 Mar 2024</span>
+          </div>
+          <div class="date-item">
+            <span class="meta-label">TARGET HANDOVER</span>
+            <span class="meta-value" id="display-end">30 Nov 2024</span>
+          </div>
+        </div>
+
+        <!-- Financial Status -->
+        <div class="section finance-section">
+          <div class="finance-header">
+            <span class="meta-label">CONTRACT FINANCIAL STATUS</span>
+            <span class="payment-badge" id="display-payment-badge">PARTIAL</span>
+          </div>
+          <div class="finance-numbers">
+            <div class="fin-block">
+              <span class="fin-label">CONTRACT VALUE</span>
+              <span class="fin-value" id="display-contract-amt">185,000 LYD</span>
+            </div>
+            <div class="fin-divider"></div>
+            <div class="fin-block">
+              <span class="fin-label">AMOUNT PAID</span>
+              <span class="fin-value paid-val" id="display-paid-amt">140,000 LYD</span>
+            </div>
+          </div>
+          <!-- Progress bar -->
+          <div class="progress-wrap">
+            <div class="progress-bar" id="finance-progress-bar" style="width: 75%;"></div>
+          </div>
+          <div class="fin-subtext" id="display-fin-subtext">Remaining Balance: 45,000 LYD (Retention Due Dec 2024)</div>
+        </div>
+
+        <!-- Field Remarks -->
+        <div class="section remarks-section">
+          <div class="meta-label">FIELD REMARKS & SPECIFICATIONS</div>
+          <p class="remarks-text" id="display-remarks">
+            Phase 1 ducting approved by supervising engineer. Pressure test for chilled water risers completed successfully.
+          </p>
+        </div>
+
+        <!-- Desktop Archive Notice -->
+        <div class="section archive-notice">
+          <div class="notice-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+          </div>
+          <div class="notice-text">
+            <strong>OFFICE HARD DRIVE ARCHIVE</strong>
+            <p>Full CAD drawings, BOQs, signed invoices, and technical submittals are securely archived in the Office Desktop Software under Code: <span class="notice-code" id="notice-code">SS-24-001</span>.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Not Found State -->
+      <div class="card not-found-card" id="not-found-card" style="display: none;">
+        <div class="not-found-icon">🔍</div>
+        <h3>Project Not Found</h3>
+        <p>No project found matching code "<span id="missing-code-text"></span>".</p>
+        <p class="sub-hint">Please check the code on the physical binder spine or select from the recent projects list below.</p>
+      </div>
+
+      <!-- Quick Directory List of Recent Projects -->
+      <div class="recent-list-section" id="recent-section">
+        <h3 class="section-title">ACTIVE PROJECTS REGISTER</h3>
+        <div class="project-mini-list" id="project-mini-list">
+          <!-- Dynamically filled -->
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>© Sadik Sons Industrial & MEP Contracting. All rights reserved.</p>
+      <p class="foot-sub">Official Binder Verification System • Powered by Sadik Sons Enterprise</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
