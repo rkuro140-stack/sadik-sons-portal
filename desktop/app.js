@@ -207,6 +207,12 @@ function renderDossierDocs(docs) {
 function openAddDocumentModal() {
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('form-doc-date').value = today;
+  document.getElementById('form-doc-category').value = 'Payment / Invoice';
+  const customInput = document.getElementById('form-doc-category-custom');
+  if (customInput) {
+    customInput.value = '';
+    customInput.classList.add('hidden');
+  }
   document.getElementById('modal-document').classList.remove('hidden');
   lucide.createIcons();
 }
@@ -214,14 +220,33 @@ function openAddDocumentModal() {
 function closeAddDocumentModal() {
   document.getElementById('modal-document').classList.add('hidden');
   document.getElementById('document-form').reset();
+  const customInput = document.getElementById('form-doc-category-custom');
+  if (customInput) {
+    customInput.value = '';
+    customInput.classList.add('hidden');
+  }
 }
 
-function toggleDocAmountField(category) {
+function handleCategorySelection(category) {
+  const customInput = document.getElementById('form-doc-category-custom');
   const container = document.getElementById('doc-amount-container');
-  if (category === 'Payment / Invoice') {
-    container.classList.remove('opacity-50');
+  if (category === '__custom__') {
+    if (customInput) {
+      customInput.classList.remove('hidden');
+      customInput.focus();
+    }
+    if (container) container.classList.remove('opacity-50');
   } else {
-    container.classList.add('opacity-50');
+    if (customInput) {
+      customInput.classList.add('hidden');
+    }
+    if (container) {
+      if (category.toLowerCase().includes('payment') || category.toLowerCase().includes('invoice') || category.toLowerCase().includes('advance')) {
+        container.classList.remove('opacity-50');
+      } else {
+        container.classList.add('opacity-50');
+      }
+    }
   }
 }
 
@@ -229,8 +254,14 @@ async function handleDocumentSubmit(e) {
   e.preventDefault();
   if (!CURRENT_DOSSIER_ID) return;
 
+  let selectedCategory = document.getElementById('form-doc-category').value;
+  if (selectedCategory === '__custom__') {
+    const customVal = document.getElementById('form-doc-category-custom').value.trim();
+    selectedCategory = customVal || 'General Document';
+  }
+
   const doc = {
-    category: document.getElementById('form-doc-category').value,
+    category: selectedCategory,
     filename: document.getElementById('form-doc-filename').value.trim(),
     fileDate: document.getElementById('form-doc-date').value.trim(),
     amount: parseFloat(document.getElementById('form-doc-amount').value) || 0,

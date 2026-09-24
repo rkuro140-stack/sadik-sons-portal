@@ -401,13 +401,23 @@
       <form id="document-form" onsubmit="handleDocumentSubmit(event)" class="p-6 space-y-4 text-xs">
         <div>
           <label class="block font-bold text-slate-700 mb-1">DOCUMENT CATEGORY</label>
-          <select id="form-doc-category" onchange="toggleDocAmountField(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-semibold text-slate-800 focus:bg-white focus:border-blue-600 focus:outline-none">
-            <option value="Tender / Contract">Tender Offer / Contract Document</option>
-            <option value="Drawing / CAD">Engineering Drawing / CAD File</option>
-            <option value="Payment / Invoice">Payment Receipt / Advance Invoice</option>
-            <option value="Packing List">Packing List / Material Delivery Note</option>
-            <option value="Site Report">Site Inspection / Handover Report</option>
-          </select>
+          <div class="space-y-2">
+            <select id="form-doc-category" onchange="handleCategorySelection(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-semibold text-slate-800 focus:bg-white focus:border-blue-600 focus:outline-none">
+              <option value="Tender / Contract">Tender Offer / Contract Document</option>
+              <option value="Drawing / CAD">Engineering Drawing / CAD File</option>
+              <option value="Payment / Invoice">Payment Receipt / Advance Invoice</option>
+              <option value="Packing List">Packing List / Material Delivery Note</option>
+              <option value="Site Report">Site Inspection / Handover Report</option>
+              <option value="Technical Specs">Technical Specs / Equipment Datasheet</option>
+              <option value="Material Approval">Material Approval / Submittal</option>
+              <option value="Customs / Shipping">Customs & Port Clearance</option>
+              <option value="Subcontractor Agreement">Subcontractor Agreement</option>
+              <option value="Warranty / Commissioning">Warranty & Commissioning Certificate</option>
+              <option value="Correspondence">Official Client Correspondence / Notice</option>
+              <option value="__custom__">+ Enter Custom Category Name...</option>
+            </select>
+            <input type="text" id="form-doc-category-custom" placeholder="Type custom category name (e.g. Subcontractor Agreement, Safety Audit...)" class="w-full bg-white border border-blue-600 rounded-lg px-3 py-2 font-semibold text-slate-800 focus:outline-none hidden">
+          </div>
         </div>
 
         <div>

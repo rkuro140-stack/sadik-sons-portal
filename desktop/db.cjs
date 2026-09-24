@@ -517,11 +517,16 @@ const sqliteService = {
       nowStr
     );
 
-    // If it's a payment or advance invoice, automatically recalculate project financial status!
-    if ((doc.category || '').toLowerCase().includes('payment') || (doc.category || '').toLowerCase().includes('invoice')) {
+    // If it's a payment, advance, invoice or any non-tender document with an amount, automatically recalculate project financial status!
+    const catLower = (doc.category || '').toLowerCase();
+    const isPaymentDoc = (amountVal > 0 && !catLower.includes('tender') && !catLower.includes('drawing')) || catLower.includes('payment') || catLower.includes('invoice') || catLower.includes('advance');
+    if (isPaymentDoc) {
       const allPayments = db.prepare(`
         SELECT SUM(amount) as totalPaid FROM project_documents 
-        WHERE UPPER(project_id) = ? AND (LOWER(category) LIKE '%payment%' OR LOWER(category) LIKE '%invoice%')
+        WHERE UPPER(project_id) = ? 
+          AND amount > 0 
+          AND LOWER(category) NOT LIKE '%tender%' 
+          AND LOWER(category) NOT LIKE '%drawing%'
       `).get(cleanId);
 
       const totalPaid = allPayments ? (allPayments.totalPaid || 0) : 0;
@@ -547,11 +552,16 @@ const sqliteService = {
 
     db.prepare('DELETE FROM project_documents WHERE id = ?').run(docId);
 
-    // Recalculate payments if deleted doc was an invoice
-    if ((doc.category || '').toLowerCase().includes('payment') || (doc.category || '').toLowerCase().includes('invoice')) {
+    // Recalculate payments if deleted doc had an amount or was a payment
+    const deletedCat = (doc.category || '').toLowerCase();
+    const wasPayment = (Number(doc.amount) > 0 && !deletedCat.includes('tender') && !deletedCat.includes('drawing')) || deletedCat.includes('payment') || deletedCat.includes('invoice');
+    if (wasPayment) {
       const allPayments = db.prepare(`
         SELECT SUM(amount) as totalPaid FROM project_documents 
-        WHERE UPPER(project_id) = ? AND (LOWER(category) LIKE '%payment%' OR LOWER(category) LIKE '%invoice%')
+        WHERE UPPER(project_id) = ? 
+          AND amount > 0 
+          AND LOWER(category) NOT LIKE '%tender%' 
+          AND LOWER(category) NOT LIKE '%drawing%'
       `).get(doc.project_id);
 
       const totalPaid = allPayments ? (allPayments.totalPaid || 0) : 0;
