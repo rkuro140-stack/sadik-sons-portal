@@ -37,19 +37,20 @@ CREATE TABLE IF NOT EXISTS public.project_documents (
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.project_documents ENABLE ROW LEVEL SECURITY;
 
--- 4. Policies: Public Read-Only Access (For phone QR scans over 4G)
-CREATE POLICY "Allow public read access for projects"
+-- 4. Policies: Seamless Read & Desktop Sync Access
+-- Phone 4G scans can read immediately without login
+-- Desktop software can sync projects and filed documents directly
+CREATE POLICY "Allow read access for projects"
     ON public.projects FOR SELECT USING (true);
 
-CREATE POLICY "Allow public read access for documents"
+CREATE POLICY "Allow read access for documents"
     ON public.project_documents FOR SELECT USING (true);
 
--- 5. Policies: Authorized Full Access (For Desktop App sync)
-CREATE POLICY "Allow authenticated full access to projects"
-    ON public.projects FOR ALL USING (auth.role() = 'authenticated' OR auth.role() = 'service_role');
+CREATE POLICY "Allow write access for projects"
+    ON public.projects FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow authenticated full access to documents"
-    ON public.project_documents FOR ALL USING (auth.role() = 'authenticated' OR auth.role() = 'service_role');
+CREATE POLICY "Allow write access for documents"
+    ON public.project_documents FOR ALL USING (true) WITH CHECK (true);
 
 -- ==============================================================================
 -- 6. Insert Seed Data
