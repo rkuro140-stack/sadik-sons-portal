@@ -428,18 +428,31 @@ function renderSpineView(code) {
 
   const mobileScanUrl = `https://sadik-sons-portal.pages.dev/?id=${encodeURIComponent(project.id)}`;
 
-  QRCode.toCanvas(mobileScanUrl, {
-    width: 90,
-    margin: 1,
-    color: {
-      dark: '#0F172A',
-      light: '#FFFFFF'
+  try {
+    if (typeof QRCode !== 'undefined') {
+      new QRCode(qrBox, {
+        text: mobileScanUrl,
+        width: 88,
+        height: 88,
+        colorDark: '#0F172A',
+        colorLight: '#FFFFFF',
+        correctLevel: typeof QRCode.CorrectLevel !== 'undefined' ? QRCode.CorrectLevel.M : 0
+      });
+    } else {
+      const img = document.createElement('img');
+      img.src = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(mobileScanUrl)}`;
+      img.alt = 'QR Code';
+      img.className = 'w-full h-full object-contain';
+      qrBox.appendChild(img);
     }
-  }, (err, canvas) => {
-    if (!err) {
-      qrBox.appendChild(canvas);
-    }
-  });
+  } catch (err) {
+    console.warn('QR render notice:', err);
+    const img = document.createElement('img');
+    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(mobileScanUrl)}`;
+    img.alt = 'QR Code';
+    img.className = 'w-full h-full object-contain';
+    qrBox.appendChild(img);
+  }
 }
 
 function updateSpineWidth(widthMm) {
