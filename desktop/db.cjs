@@ -70,6 +70,18 @@ db.exec(`
     folder_path TEXT,
     created_at TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS project_documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    category TEXT NOT NULL,
+    file_date TEXT,
+    amount REAL DEFAULT 0,
+    notes TEXT,
+    file_path TEXT,
+    created_at TEXT
+  );
 `);
 
 // Check if tools table is empty, seed if so
@@ -148,6 +160,25 @@ if (rowCount === 0) {
     ['SS-23-014', 'Al-Dahra Substation — Fire Suppression Retrofit', 'GECOL (General Electric Company)', 'Al-Dahra Sector, Tripoli', '10 Aug 2023', '25 Jan 2024', 320000, 'LYD', 288000, 'Retention Due', 'Handover certificate issued Jan 2024. 10% retention (32,000 LYD) scheduled for release Dec 2024.', 'ARCHIVE', '', '2023-08-10 11:00']
   ];
   initialProjects.forEach(p => insertProject.run(...p));
+
+  // Seed Initial Documents
+  const insertDoc = db.prepare(`
+    INSERT INTO project_documents (project_id, filename, category, file_date, amount, notes, file_path, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const initialDocs = [
+    ['SS-24-001', 'Tender_Offer_Signed_AlNaseem.pdf', 'Tender / Contract', '15 Mar 2024', 185000, 'Original signed commercial & technical offer', '', '2024-03-15 09:30'],
+    ['SS-24-001', 'HVAC_Shop_Drawings_Rev2.dwg', 'Drawing / CAD', '04 Apr 2024', 0, 'Ductwork routing approved by supervising consultant', '', '2024-04-04 11:00'],
+    ['SS-24-001', 'Invoice_Advance_Payment_01.pdf', 'Payment / Invoice', '18 Apr 2024', 50000, 'First mobilization advance check received', '', '2024-04-18 14:00'],
+    ['SS-24-001', 'Packing_List_Chiller_Valves_PL409.pdf', 'Packing List', '12 Jun 2024', 0, 'Imported from Italy via Tripoli Port (Customs cleared)', '', '2024-06-12 10:15'],
+    ['SS-24-001', 'Invoice_Interim_Payment_02.pdf', 'Payment / Invoice', '20 Jul 2024', 90000, 'Interim invoice for chiller piping milestone', '', '2024-07-20 16:30'],
+    ['SS-24-002', 'Maintenance_Agreement_Signed.pdf', 'Tender / Contract', '01 May 2024', 95000, 'Comprehensive annual chiller maintenance', '', '2024-05-01 10:30'],
+    ['SS-24-002', 'Full_Payment_Receipt.pdf', 'Payment / Invoice', '15 May 2024', 95000, '100% upfront payment received via bank transfer', '', '2024-05-15 11:00'],
+    ['SS-23-014', 'GECOL_Award_Letter_Contract.pdf', 'Tender / Contract', '10 Aug 2023', 320000, 'Official award for substation fire suppression', '', '2023-08-10 11:30'],
+    ['SS-23-014', 'Progress_Invoice_01_and_02.pdf', 'Payment / Invoice', '15 Dec 2023', 288000, 'Total milestones paid (90%). 10% retention pending', '', '2023-12-15 15:00']
+  ];
+  initialDocs.forEach(d => insertDoc.run(...d));
 }
 
 function getArchiveBasePath() {
@@ -455,6 +486,85 @@ const sqliteService = {
       exec(`xdg-open "${targetDir}"`);
     }
     return { success: true, path: targetDir };
+  },
+
+  // --- PROJECT DOCUMENTS & DOSSIER ---
+  getProjectDocuments(projectId) {
+    const cleanId = String(projectId).trim().toUpperCase();
+    return db.prepare('SELECT * FROM project_documents WHERE UPPER(project_id) = ? ORDER BY id DESC').all(cleanId);
+  },
+
+  addProjectDocument(doc) {
+    if (!doc.projectId) throw new Error('Project ID is required');
+    const cleanId = String(doc.projectId).trim().toUpperCase();
+    const project = this.getProject(cleanId);
+    if (!project) throw new Error(`Project ${cleanId} not found`);
+
+    const nowStr = getNowString();
+    const amountVal = Number(doc.amount) || 0;
+
+    const result = db.prepare(`
+      INSERT INTO project_documents (project_id, filename, category, file_date, amount, notes, file_path, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      cleanId,
+      doc.filename || 'Untitled Document',
+      doc.category || 'Tender / Contract',
+      doc.fileDate || nowStr.split(' ')[0],
+      amountVal,
+      doc.notes || '',
+      doc.filePath || '',
+      nowStr
+    );
+
+    // If it's a payment or advance invoice, automatically recalculate project financial status!
+    if ((doc.category || '').toLowerCase().includes('payment') || (doc.category || '').toLowerCase().includes('invoice')) {
+      const allPayments = db.prepare(`
+        SELECT SUM(amount) as totalPaid FROM project_documents 
+        WHERE UPPER(project_id) = ? AND (LOWER(category) LIKE '%payment%' OR LOWER(category) LIKE '%invoice%')
+      `).get(cleanId);
+
+      const totalPaid = allPayments ? (allPayments.totalPaid || 0) : 0;
+      const contractAmt = Number(project.contract_amount) || 0;
+      let newPaymentStatus = 'Partial';
+      if (totalPaid >= contractAmt && contractAmt > 0) {
+        newPaymentStatus = 'Paid';
+      } else if (totalPaid === 0) {
+        newPaymentStatus = 'Pending';
+      }
+
+      db.prepare(`
+        UPDATE projects SET paid_amount = ?, payment_status = ? WHERE UPPER(id) = ?
+      `).run(totalPaid, newPaymentStatus, cleanId);
+    }
+
+    return this.getProjectDocuments(cleanId);
+  },
+
+  deleteProjectDocument(docId) {
+    const doc = db.prepare('SELECT * FROM project_documents WHERE id = ?').get(docId);
+    if (!doc) return { success: false };
+
+    db.prepare('DELETE FROM project_documents WHERE id = ?').run(docId);
+
+    // Recalculate payments if deleted doc was an invoice
+    if ((doc.category || '').toLowerCase().includes('payment') || (doc.category || '').toLowerCase().includes('invoice')) {
+      const allPayments = db.prepare(`
+        SELECT SUM(amount) as totalPaid FROM project_documents 
+        WHERE UPPER(project_id) = ? AND (LOWER(category) LIKE '%payment%' OR LOWER(category) LIKE '%invoice%')
+      `).get(doc.project_id);
+
+      const totalPaid = allPayments ? (allPayments.totalPaid || 0) : 0;
+      const project = this.getProject(doc.project_id);
+      const contractAmt = project ? Number(project.contract_amount) : 0;
+      let newPaymentStatus = totalPaid >= contractAmt && contractAmt > 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Pending');
+
+      db.prepare(`
+        UPDATE projects SET paid_amount = ?, payment_status = ? WHERE UPPER(id) = ?
+      `).run(totalPaid, newPaymentStatus, doc.project_id);
+    }
+
+    return { success: true };
   }
 };
 

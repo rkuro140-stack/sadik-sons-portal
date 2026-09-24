@@ -5,6 +5,7 @@
 
 let PROJECTS_CACHE = [];
 let TOOLS_CACHE = [];
+let CURRENT_DOSSIER_ID = null;
 let CURRENT_SPINE_CODE = null;
 
 // Initialize on Load
@@ -15,16 +16,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // View Navigation
 function switchView(viewName) {
-  const views = ['projects', 'spines', 'tools'];
+  const views = ['projects', 'dossier', 'spines', 'tools'];
   views.forEach(v => {
     const el = document.getElementById(`view-${v}`);
     const btn = document.getElementById(`nav-btn-${v}`);
-    if (v === viewName) {
-      el.classList.remove('hidden');
-      btn.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-blue-700 shadow-sm transition";
-    } else {
-      el.classList.add('hidden');
-      btn.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition";
+    if (el) {
+      if (v === viewName) el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    }
+    if (btn) {
+      if (v === viewName) {
+        btn.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-blue-700 shadow-sm transition";
+      } else {
+        btn.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition";
+      }
     }
   });
 
@@ -35,7 +40,7 @@ function switchView(viewName) {
   lucide.createIcons();
 }
 
-// --- PROJECTS MANAGEMENT ---
+// --- PROJECTS REGISTER & TABLE ---
 
 async function loadProjects() {
   try {
@@ -57,7 +62,7 @@ function renderProjectsTable(projects) {
     tbody.innerHTML = `
       <tr>
         <td colspan="7" class="py-12 text-center text-slate-400">
-          No projects found in local archive database. Click "New Project" to register one.
+          No projects found in local archive database. Click "New Project & Binder" to register one.
         </td>
       </tr>
     `;
@@ -75,7 +80,7 @@ function renderProjectsTable(projects) {
     else if (isPartial) badgeClass = "bg-amber-50 text-amber-700 border-amber-200";
 
     return `
-      <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+      <tr class="hover:bg-slate-50 transition border-b border-slate-100 cursor-pointer" onclick="openProjectDossier('${p.id}')">
         <td class="py-3 px-4 font-mono font-bold text-blue-700">${p.id}</td>
         <td class="py-3 px-4 font-bold text-slate-900">${p.title}</td>
         <td class="py-3 px-4 text-slate-600 font-medium">${p.client}</td>
@@ -83,12 +88,15 @@ function renderProjectsTable(projects) {
         <td class="py-3 px-4 text-right font-mono font-bold text-slate-900">${amt} ${curr}</td>
         <td class="py-3 px-4 text-center">
           <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${badgeClass}">
-            ${p.payment_status || 'Active'}
+            ${p.payment_status || 'Pending'}
           </span>
         </td>
-        <td class="py-3 px-4 text-right space-x-1.5">
-          <button onclick="openSpineForProject('${p.id}')" class="px-2.5 py-1 bg-white border border-slate-300 hover:border-blue-600 rounded text-[11px] font-bold text-blue-700 transition">
-            Spine Label
+        <td class="py-3 px-4 text-right space-x-1.5" onclick="event.stopPropagation()">
+          <button onclick="openProjectDossier('${p.id}')" class="px-2.5 py-1 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded text-[11px] font-bold text-blue-700 transition">
+            Dossier
+          </button>
+          <button onclick="openSpineForProject('${p.id}')" class="px-2.5 py-1 bg-white border border-slate-300 hover:border-blue-600 rounded text-[11px] font-bold text-slate-700 transition">
+            Spine
           </button>
           <button onclick="openProjectFolder('${p.id}')" class="px-2.5 py-1 bg-white border border-slate-300 hover:border-slate-600 rounded text-[11px] font-bold text-slate-700 transition">
             Folder
@@ -119,7 +127,213 @@ function filterProjectsTable() {
   renderProjectsTable(filtered);
 }
 
-// Open Windows File Explorer or Mac Finder at project folder
+// --- PROJECT DOSSIER & DOCUMENT MANAGER ---
+
+async function openProjectDossier(projectId) {
+  CURRENT_DOSSIER_ID = projectId;
+  const project = PROJECTS_CACHE.find(p => p.id === projectId);
+  if (!project) return;
+
+  document.getElementById('dossier-code').textContent = project.id;
+  document.getElementById('dossier-title').textContent = project.title;
+  document.getElementById('dossier-client').textContent = `Client: ${project.client} • Location: ${project.site_address || 'Tripoli'}`;
+  document.getElementById('dossier-status').textContent = project.status || 'ACTIVE';
+
+  // Calculate & Display Financials
+  const contractVal = Number(project.contract_amount || 0);
+  const paidVal = Number(project.paid_amount || 0);
+  const remainingVal = Math.max(0, contractVal - paidVal);
+  const curr = project.currency || 'LYD';
+
+  document.getElementById('dossier-contract-val').textContent = `${contractVal.toLocaleString()} ${curr}`;
+  document.getElementById('dossier-paid-val').textContent = `${paidVal.toLocaleString()} ${curr}`;
+  document.getElementById('dossier-remaining-val').textContent = `${remainingVal.toLocaleString()} ${curr}`;
+
+  // Fetch Documents
+  await loadProjectDocuments(projectId);
+
+  switchView('dossier');
+}
+
+async function loadProjectDocuments(projectId) {
+  try {
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/documents`);
+    if (!res.ok) throw new Error('Failed to load documents');
+    const docs = await res.json();
+    renderDossierDocs(docs);
+  } catch (err) {
+    console.error('Error loading documents:', err);
+  }
+}
+
+function renderDossierDocs(docs) {
+  const tbody = document.getElementById('dossier-docs-tbody');
+  const countLabel = document.getElementById('dossier-doc-count');
+  if (!tbody) return;
+
+  countLabel.textContent = `${docs.length} Document${docs.length === 1 ? '' : 's'}`;
+
+  if (docs.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="py-8 text-center text-slate-400 text-xs">
+          No files filed in this binder yet. Click "Add / Upload File" above.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = docs.map(d => {
+    const amountDisplay = d.amount > 0 ? `${Number(d.amount).toLocaleString()} LYD` : '—';
+    return `
+      <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+        <td class="py-3 px-4 font-semibold text-slate-900 font-mono text-[11px]">${d.filename}</td>
+        <td class="py-3 px-4">
+          <span class="px-2 py-0.5 rounded bg-slate-100 font-bold text-[10px] text-slate-700">${d.category}</span>
+        </td>
+        <td class="py-3 px-4 text-slate-500 font-mono text-[11px]">${d.file_date || '—'}</td>
+        <td class="py-3 px-4 text-right font-mono font-bold text-slate-800">${amountDisplay}</td>
+        <td class="py-3 px-4 text-slate-600 text-xs">${d.notes || '—'}</td>
+        <td class="py-3 px-4 text-right">
+          <button onclick="deleteDocument(${d.id})" class="text-slate-400 hover:text-rose-600 text-xs font-bold transition">Delete</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Modal: Add Document
+function openAddDocumentModal() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('form-doc-date').value = today;
+  document.getElementById('modal-document').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeAddDocumentModal() {
+  document.getElementById('modal-document').classList.add('hidden');
+  document.getElementById('document-form').reset();
+}
+
+function toggleDocAmountField(category) {
+  const container = document.getElementById('doc-amount-container');
+  if (category === 'Payment / Invoice') {
+    container.classList.remove('opacity-50');
+  } else {
+    container.classList.add('opacity-50');
+  }
+}
+
+async function handleDocumentSubmit(e) {
+  e.preventDefault();
+  if (!CURRENT_DOSSIER_ID) return;
+
+  const doc = {
+    category: document.getElementById('form-doc-category').value,
+    filename: document.getElementById('form-doc-filename').value.trim(),
+    fileDate: document.getElementById('form-doc-date').value.trim(),
+    amount: parseFloat(document.getElementById('form-doc-amount').value) || 0,
+    notes: document.getElementById('form-doc-notes').value.trim()
+  };
+
+  try {
+    const res = await fetch(`/api/projects/${encodeURIComponent(CURRENT_DOSSIER_ID)}/documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(doc)
+    });
+
+    if (!res.ok) throw new Error('Failed to attach document');
+    closeAddDocumentModal();
+
+    // Reload projects to update financial calculations, then refresh dossier
+    await loadProjects();
+    await openProjectDossier(CURRENT_DOSSIER_ID);
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+}
+
+async function deleteDocument(docId) {
+  if (!confirm('Are you sure you want to remove this document record from the binder?')) return;
+  try {
+    const res = await fetch(`/api/documents/${docId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete document');
+    await loadProjects();
+    await openProjectDossier(CURRENT_DOSSIER_ID);
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+}
+
+function openSpineForCurrentProject() {
+  if (CURRENT_DOSSIER_ID) {
+    openSpineForProject(CURRENT_DOSSIER_ID);
+  }
+}
+
+function openCurrentProjectFolder() {
+  if (CURRENT_DOSSIER_ID) {
+    openProjectFolder(CURRENT_DOSSIER_ID);
+  }
+}
+
+// --- PROJECT CREATION & DIRECT SPINE PRINT PROTOCOL ---
+
+function openNewProjectModal() {
+  // Suggest next code based on current count
+  const yearShort = new Date().getFullYear().toString().slice(-2);
+  const nextNum = String(PROJECTS_CACHE.length + 1).padStart(3, '0');
+  document.getElementById('form-proj-id').value = `SS-${yearShort}-${nextNum}`;
+  document.getElementById('modal-project').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeProjectModal() {
+  document.getElementById('modal-project').classList.add('hidden');
+  document.getElementById('project-form').reset();
+}
+
+async function handleProjectSubmit(e) {
+  e.preventDefault();
+
+  const newProject = {
+    id: document.getElementById('form-proj-id').value.trim().toUpperCase(),
+    title: document.getElementById('form-proj-title').value.trim(),
+    client: document.getElementById('form-proj-client').value.trim(),
+    site_address: document.getElementById('form-proj-site').value.trim(),
+    start_date: document.getElementById('form-proj-start').value.trim(),
+    end_date: document.getElementById('form-proj-end').value.trim(),
+    contract_amount: parseFloat(document.getElementById('form-proj-amount').value) || 0,
+    currency: document.getElementById('form-proj-currency').value,
+    payment_status: document.getElementById('form-proj-payment').value,
+    status: document.getElementById('form-proj-status').value,
+    remarks: document.getElementById('form-proj-remarks').value.trim()
+  };
+
+  try {
+    const res = await fetch('/api/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newProject)
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to create project');
+
+    closeProjectModal();
+    await loadProjects();
+
+    // PROTOCOL STEP: Immediately open the Spine Label Print Generator for this new project!
+    openSpineForProject(newProject.id);
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+}
+
+// --- FOLDER LAUNCHERS ---
+
 async function openProjectFolder(projectId) {
   try {
     const res = await fetch('/api/projects/open-folder', {
@@ -134,7 +348,6 @@ async function openProjectFolder(projectId) {
   }
 }
 
-// Open Root Archive Directory
 async function openArchiveFolderRoot() {
   try {
     await fetch('/api/projects/open-folder', {
@@ -179,7 +392,6 @@ function renderSpineView(code) {
   document.getElementById('spine-display-title').textContent = project.title;
   document.getElementById('spine-display-client').textContent = `Client: ${project.client}`;
 
-  // Generate QR Code targeting the Cloudflare Mobile Passport URL
   const qrBox = document.getElementById('spine-qrcode-box');
   qrBox.innerHTML = '';
 
@@ -200,7 +412,7 @@ function renderSpineView(code) {
 }
 
 function updateSpineWidth(widthMm) {
-  const container = document.getElementById('printable-spine-area');
+  const container = document.getElementById('printable-spine-container');
   if (!container) return;
   if (widthMm === '70') {
     container.className = "bg-white border-2 border-slate-900 rounded-lg p-8 shadow-xl flex items-center justify-between gap-8 w-full max-w-3xl";
@@ -209,54 +421,7 @@ function updateSpineWidth(widthMm) {
   }
 }
 
-// --- PROJECT MODAL & REGISTRATION ---
-
-function openNewProjectModal() {
-  document.getElementById('modal-project').classList.remove('hidden');
-  lucide.createIcons();
-}
-
-function closeProjectModal() {
-  document.getElementById('modal-project').classList.add('hidden');
-  document.getElementById('project-form').reset();
-}
-
-async function handleProjectSubmit(e) {
-  e.preventDefault();
-
-  const newProject = {
-    id: document.getElementById('form-proj-id').value.trim().toUpperCase(),
-    title: document.getElementById('form-proj-title').value.trim(),
-    client: document.getElementById('form-proj-client').value.trim(),
-    site_address: document.getElementById('form-proj-site').value.trim(),
-    start_date: document.getElementById('form-proj-start').value.trim(),
-    end_date: document.getElementById('form-proj-end').value.trim(),
-    contract_amount: parseFloat(document.getElementById('form-proj-amount').value) || 0,
-    currency: document.getElementById('form-proj-currency').value,
-    payment_status: document.getElementById('form-proj-payment').value,
-    status: document.getElementById('form-proj-status').value,
-    remarks: document.getElementById('form-proj-remarks').value.trim()
-  };
-
-  try {
-    const res = await fetch('/api/projects', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newProject)
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to save project');
-
-    closeProjectModal();
-    await loadProjects();
-    alert(`Project ${newProject.id} successfully created!\nDigital 5-folder archive created on local hard drive.`);
-  } catch (err) {
-    alert(`Error: ${err.message}`);
-  }
-}
-
-// --- TOOL CUSTODY ---
+// --- TOOLS CUSTODY ---
 
 async function loadTools() {
   try {
@@ -284,26 +449,23 @@ function renderToolsTable(tools) {
         <td class="py-3 px-4 font-mono font-bold text-blue-700">${t.code || t.id}</td>
         <td class="py-3 px-4 font-bold text-slate-900">${t.name}</td>
         <td class="py-3 px-4 text-slate-600">${t.brand} ${t.model || ''}</td>
-        <td class="py-3 px-4 text-slate-500">${t.assignedSite || 'Tool Crib'}</td>
+        <td class="py-3 px-4 text-slate-500">${t.assignedSite || 'Main Tool Crib'}</td>
         <td class="py-3 px-4 text-slate-700 font-medium">${t.assignedTo || '—'}</td>
         <td class="py-3 px-4 text-center">${statusBadge}</td>
-        <td class="py-3 px-4 text-right">
-          <span class="text-xs text-slate-400 font-mono">${t.shelf || 'Rack A'}</span>
-        </td>
       </tr>
     `;
   }).join('');
 }
 
-// --- CLOUD SYNC TRIGGER ---
+// --- CLOUD SYNC ---
 
 function triggerCloudSync() {
   const label = document.getElementById('sync-status-label');
   label.textContent = "Syncing...";
   setTimeout(() => {
-    label.textContent = "Synced";
+    label.textContent = "Live Synced";
     setTimeout(() => {
-      label.textContent = "Sync Cloud";
+      label.textContent = "Sync Cloud QR";
     }, 2000);
-  }, 800);
+  }, 700);
 }

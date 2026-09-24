@@ -168,9 +168,30 @@ const server = http.createServer(async (req, res) => {
       }
 
       // DELETE /api/projects/:id
-      if (reqPath.startsWith('/api/projects/') && req.method === 'DELETE') {
+      if (reqPath.startsWith('/api/projects/') && !reqPath.includes('/documents') && req.method === 'DELETE') {
         const id = decodeURIComponent(reqPath.replace('/api/projects/', ''));
         const result = db.deleteProject(id);
+        return sendJson(res, 200, result);
+      }
+
+      // GET /api/projects/:id/documents
+      if (reqPath.startsWith('/api/projects/') && reqPath.endsWith('/documents') && req.method === 'GET') {
+        const id = decodeURIComponent(reqPath.replace('/api/projects/', '').replace('/documents', ''));
+        return sendJson(res, 200, db.getProjectDocuments(id));
+      }
+
+      // POST /api/projects/:id/documents
+      if (reqPath.startsWith('/api/projects/') && reqPath.endsWith('/documents') && req.method === 'POST') {
+        const id = decodeURIComponent(reqPath.replace('/api/projects/', '').replace('/documents', ''));
+        const body = await parseJsonBody(req);
+        const docs = db.addProjectDocument({ ...body, projectId: id });
+        return sendJson(res, 201, docs);
+      }
+
+      // DELETE /api/documents/:id
+      if (reqPath.startsWith('/api/documents/') && req.method === 'DELETE') {
+        const docId = decodeURIComponent(reqPath.replace('/api/documents/', ''));
+        const result = db.deleteProjectDocument(docId);
         return sendJson(res, 200, result);
       }
 

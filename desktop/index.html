@@ -14,9 +14,9 @@
     body { font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; }
     .font-mono { font-family: 'JetBrains Mono', monospace; }
     @media print {
-      body * { visibility: hidden; }
-      #printable-spine-area, #printable-spine-area * { visibility: visible; }
-      #printable-spine-area {
+      body * { visibility: hidden !important; }
+      #printable-spine-container, #printable-spine-container * { visibility: visible !important; }
+      #printable-spine-container {
         position: fixed;
         left: 0;
         top: 0;
@@ -42,7 +42,7 @@
           <div class="flex items-center gap-2">
             <h1 class="text-sm font-extrabold text-slate-900 tracking-tight">SADIK SONS</h1>
             <span class="text-[10px] font-mono font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
-              OFFICE DESKTOP v2.4
+              OFFICE CONTROL CENTER
             </span>
           </div>
           <p class="text-[11px] font-semibold text-slate-500 tracking-wide uppercase">Industrial & MEP Contracting Operations</p>
@@ -53,11 +53,11 @@
       <nav class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
         <button onclick="switchView('projects')" id="nav-btn-projects" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-blue-700 shadow-sm transition">
           <i data-lucide="folder-kanban" class="w-3.5 h-3.5"></i>
-          <span>Projects Directory</span>
+          <span>Projects Register</span>
         </button>
         <button onclick="switchView('spines')" id="nav-btn-spines" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition">
           <i data-lucide="tag" class="w-3.5 h-3.5"></i>
-          <span>Binder Spine Generator</span>
+          <span>Binder Spine Labels</span>
         </button>
         <button onclick="switchView('tools')" id="nav-btn-tools" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition">
           <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
@@ -69,11 +69,11 @@
       <div class="flex items-center gap-2.5">
         <button onclick="openNewProjectModal()" class="flex items-center gap-1.5 px-3.5 py-2 bg-blue-700 text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition shadow-sm">
           <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-          <span>New Project</span>
+          <span>New Project & Binder</span>
         </button>
         <button onclick="triggerCloudSync()" class="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg text-xs font-bold transition border border-slate-200">
           <i data-lucide="cloud" class="w-3.5 h-3.5 text-blue-600"></i>
-          <span id="sync-status-label">Sync Cloud</span>
+          <span id="sync-status-label">Sync Cloud QR</span>
         </button>
       </div>
 
@@ -90,7 +90,7 @@
       <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between gap-4">
         <div class="relative flex-1 max-w-md">
           <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
-          <input type="text" id="project-search-input" onkeyup="filterProjectsTable()" placeholder="Search project code, title, client, or site..." class="w-full bg-slate-50 border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-xs font-medium focus:outline-none focus:border-blue-600 focus:bg-white transition">
+          <input type="text" id="project-search-input" onkeyup="filterProjectsTable()" placeholder="Search project code, title, client, or site location..." class="w-full bg-slate-50 border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-xs font-medium focus:outline-none focus:border-blue-600 focus:bg-white transition">
         </div>
 
         <div class="flex items-center gap-2 text-xs">
@@ -102,7 +102,7 @@
           </select>
           <button onclick="openArchiveFolderRoot()" class="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg font-bold hover:bg-slate-200 transition">
             <i data-lucide="folder-open" class="w-3.5 h-3.5 text-slate-600"></i>
-            <span>Archive Root</span>
+            <span>Archive Root on PC</span>
           </button>
         </div>
       </div>
@@ -112,13 +112,13 @@
         <table class="w-full text-left text-xs border-collapse">
           <thead>
             <tr class="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
-              <th class="py-3 px-4 w-32">Code</th>
+              <th class="py-3 px-4 w-32">Binder Code</th>
               <th class="py-3 px-4">Project Title</th>
-              <th class="py-3 px-4">Client</th>
+              <th class="py-3 px-4">Client Name</th>
               <th class="py-3 px-4">Site Location</th>
-              <th class="py-3 px-4 text-right">Contract Value</th>
-              <th class="py-3 px-4 text-center w-28">Status</th>
-              <th class="py-3 px-4 text-right w-44">Actions</th>
+              <th class="py-3 px-4 text-right">Tender / Contract</th>
+              <th class="py-3 px-4 text-center w-28">Payment</th>
+              <th class="py-3 px-4 text-right w-52">Actions</th>
             </tr>
           </thead>
           <tbody id="projects-table-body" class="divide-y divide-slate-100 font-medium text-slate-700">
@@ -129,12 +129,99 @@
 
     </section>
 
-    <!-- VIEW 2: BINDER SPINE GENERATOR -->
+    <!-- VIEW 2: PROJECT DOSSIER & DOCUMENT MANAGER (Deep Project View) -->
+    <section id="view-dossier" class="space-y-5 hidden">
+      
+      <!-- Dossier Header & Quick Controls -->
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <button onclick="switchView('projects')" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600 transition" title="Back to Projects">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          </button>
+          <div>
+            <div class="flex items-center gap-2">
+              <span id="dossier-code" class="text-base font-extrabold font-mono text-blue-700">SS-24-001</span>
+              <span id="dossier-status" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">ACTIVE</span>
+            </div>
+            <h2 id="dossier-title" class="text-base font-extrabold text-slate-900 mt-0.5">Tripoli Commercial Center — HVAC & Piping</h2>
+            <p id="dossier-client" class="text-xs text-slate-500">Client: Al-Naseem Contracting Group • Location: Hai Al-Andalus, Tripoli</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="openAddDocumentModal()" class="flex items-center gap-1.5 px-3.5 py-2 bg-blue-700 text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition shadow-sm">
+            <i data-lucide="file-plus" class="w-3.5 h-3.5"></i>
+            <span>Add / Upload File</span>
+          </button>
+          <button onclick="openSpineForCurrentProject()" class="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-300 text-blue-700 rounded-lg text-xs font-bold hover:border-blue-600 transition">
+            <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+            <span>Print Spine</span>
+          </button>
+          <button onclick="openCurrentProjectFolder()" class="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-xs font-bold hover:border-slate-600 transition">
+            <i data-lucide="folder-open" class="w-3.5 h-3.5 text-slate-600"></i>
+            <span>Open PC Folder</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Financial Status Banner (Auto-recalculated from files & synced to QR) -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm grid grid-cols-4 gap-4 text-xs">
+        <div class="border-r border-slate-100 pr-4">
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">CONTRACT / TENDER VALUE</span>
+          <span id="dossier-contract-val" class="text-base font-extrabold font-mono text-slate-900 mt-0.5 block">185,000 LYD</span>
+        </div>
+        <div class="border-r border-slate-100 pr-4">
+          <span class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">TOTAL ADVANCES & INVOICES PAID</span>
+          <span id="dossier-paid-val" class="text-base font-extrabold font-mono text-emerald-600 mt-0.5 block">140,000 LYD</span>
+        </div>
+        <div class="border-r border-slate-100 pr-4">
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">OUTSTANDING BALANCE</span>
+          <span id="dossier-remaining-val" class="text-base font-extrabold font-mono text-slate-900 mt-0.5 block">45,000 LYD</span>
+        </div>
+        <div>
+          <span class="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">4G QR SYNC STATUS</span>
+          <span class="text-xs font-bold text-slate-700 mt-1 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span>Live on Cloudflare Mobile</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Filed Documents in this Binder -->
+      <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        <div class="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+          <div>
+            <h3 class="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Filed Documents in this Physical Binder</h3>
+            <p class="text-[11px] text-slate-500">All documents are securely archived in the project folder on your local PC hard drive.</p>
+          </div>
+          <span id="dossier-doc-count" class="text-xs font-mono font-bold text-slate-500 bg-white px-2.5 py-1 rounded border border-slate-200">5 Documents</span>
+        </div>
+
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[10px]">
+              <th class="py-2.5 px-4">Document / File Name</th>
+              <th class="py-2.5 px-4 w-40">Category</th>
+              <th class="py-2.5 px-4 w-28">Date Filed</th>
+              <th class="py-2.5 px-4 text-right w-36">Amount (If Invoice)</th>
+              <th class="py-2.5 px-4">Notes / Reference</th>
+              <th class="py-2.5 px-4 text-right w-20">Action</th>
+            </tr>
+          </thead>
+          <tbody id="dossier-docs-tbody" class="divide-y divide-slate-100 font-medium text-slate-700">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+
+    </section>
+
+    <!-- VIEW 3: BINDER SPINE GENERATOR -->
     <section id="view-spines" class="space-y-6 hidden">
       <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
         <div>
           <h2 class="text-sm font-extrabold text-slate-900 uppercase tracking-wider">Physical Binder Spine Label Generator</h2>
-          <p class="text-xs text-slate-500 mt-0.5">Pre-formatted 50mm and 70mm printable spine inserts with high-resolution vector QR code.</p>
+          <p class="text-xs text-slate-500 mt-0.5">Pre-formatted 50mm and 70mm printable spine inserts with live scannable QR code.</p>
         </div>
         <div class="flex items-center gap-3">
           <select id="spine-project-select" onchange="renderSpineView(this.value)" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800">
@@ -153,7 +240,7 @@
 
       <!-- Live Printable Spine Card -->
       <div class="bg-slate-100 p-8 rounded-2xl border border-slate-200 flex justify-center">
-        <div id="printable-spine-area" class="bg-white border-2 border-slate-900 rounded-lg p-6 shadow-xl flex items-center justify-between gap-8 w-full max-w-2xl">
+        <div id="printable-spine-container" class="bg-white border-2 border-slate-900 rounded-lg p-6 shadow-xl flex items-center justify-between gap-8 w-full max-w-2xl">
           <div class="flex items-center gap-5">
             <div class="w-14 h-14 bg-blue-700 text-white font-extrabold text-xl flex items-center justify-center rounded-xl shadow-sm tracking-tight flex-shrink-0">
               SS
@@ -175,17 +262,13 @@
       <p class="text-center text-xs text-slate-400">Pre-measured dimensions for standard lever-arch office binders. Print directly to standard A4 paper.</p>
     </section>
 
-    <!-- VIEW 3: TOOL CUSTODY -->
+    <!-- VIEW 4: TOOL CUSTODY -->
     <section id="view-tools" class="space-y-4 hidden">
       <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
         <div>
           <h2 class="text-sm font-extrabold text-slate-900 uppercase tracking-wider">Equipment & Machinery Custody</h2>
           <p class="text-xs text-slate-500 mt-0.5">Real-time assignment of precision tools and machinery to active job sites.</p>
         </div>
-        <button onclick="openNewToolModal()" class="flex items-center gap-1.5 px-3.5 py-2 bg-blue-700 text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition shadow-sm">
-          <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-          <span>Add Tool</span>
-        </button>
       </div>
 
       <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
@@ -198,7 +281,6 @@
               <th class="py-3 px-4">Assigned Site</th>
               <th class="py-3 px-4">Technician</th>
               <th class="py-3 px-4 text-center w-28">Status</th>
-              <th class="py-3 px-4 text-right w-36">Actions</th>
             </tr>
           </thead>
           <tbody id="tools-table-body" class="divide-y divide-slate-100 font-medium text-slate-700">
@@ -215,8 +297,8 @@
     <div class="bg-white rounded-2xl max-w-xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col">
       <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
         <div>
-          <h3 class="text-sm font-extrabold text-slate-900 uppercase tracking-wide">Register New Project</h3>
-          <p class="text-xs text-slate-500">Automatically creates the 5-folder digital dossier on disk and generates the binder code.</p>
+          <h3 class="text-sm font-extrabold text-slate-900 uppercase tracking-wide">Open New Project & Binder</h3>
+          <p class="text-xs text-slate-500">Creates the physical binder record, provisions local PC folder, and readies spine label.</p>
         </div>
         <button onclick="closeProjectModal()" class="text-slate-400 hover:text-slate-600">
           <i data-lucide="x" class="w-5 h-5"></i>
@@ -226,7 +308,7 @@
       <form id="project-form" onsubmit="handleProjectSubmit(event)" class="p-6 space-y-4 text-xs">
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block font-bold text-slate-700 mb-1">PROJECT CODE (SS-YY-NNN)</label>
+            <label class="block font-bold text-slate-700 mb-1">BINDER CODE (SS-YY-NNN)</label>
             <input type="text" id="form-proj-id" required placeholder="e.g. SS-24-003" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-mono uppercase font-bold text-blue-700 focus:bg-white focus:border-blue-600 focus:outline-none">
           </div>
           <div>
@@ -255,20 +337,9 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">START DATE</label>
-            <input type="text" id="form-proj-start" placeholder="e.g. 15 Mar 2024" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-mono focus:bg-white focus:border-blue-600 focus:outline-none">
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">TARGET HANDOVER</label>
-            <input type="text" id="form-proj-end" placeholder="e.g. 30 Nov 2024" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-mono focus:bg-white focus:border-blue-600 focus:outline-none">
-          </div>
-        </div>
-
         <div class="grid grid-cols-3 gap-3">
           <div>
-            <label class="block font-bold text-slate-700 mb-1">CONTRACT VALUE</label>
+            <label class="block font-bold text-slate-700 mb-1">TENDER / CONTRACT VALUE</label>
             <input type="number" id="form-proj-amount" placeholder="0" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-mono font-bold focus:bg-white focus:border-blue-600 focus:outline-none">
           </div>
           <div>
@@ -280,24 +351,89 @@
             </select>
           </div>
           <div>
-            <label class="block font-bold text-slate-700 mb-1">PAYMENT STATUS</label>
+            <label class="block font-bold text-slate-700 mb-1">INITIAL PAYMENT STATUS</label>
             <select id="form-proj-payment" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-semibold focus:bg-white focus:border-blue-600 focus:outline-none">
+              <option value="Pending">Pending Advance</option>
               <option value="Partial">Partial</option>
               <option value="Paid">Paid in Full</option>
-              <option value="Pending">Pending Advance</option>
               <option value="Retention Due">Retention Due</option>
             </select>
           </div>
         </div>
 
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">START DATE (OPTIONAL)</label>
+            <input type="text" id="form-proj-start" placeholder="e.g. 15 Mar 2024" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-mono focus:bg-white focus:border-blue-600 focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">TARGET HANDOVER (OPTIONAL)</label>
+            <input type="text" id="form-proj-end" placeholder="e.g. 30 Nov 2024" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-mono focus:bg-white focus:border-blue-600 focus:outline-none">
+          </div>
+        </div>
+
         <div>
-          <label class="block font-bold text-slate-700 mb-1">FIELD REMARKS & SPECIFICATIONS</label>
-          <textarea id="form-proj-remarks" rows="2" placeholder="Testing notes, engineering approvals, or special instructions..." class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-medium focus:bg-white focus:border-blue-600 focus:outline-none"></textarea>
+          <label class="block font-bold text-slate-700 mb-1">REMARKS & SPECIFICATIONS (OPTIONAL)</label>
+          <textarea id="form-proj-remarks" rows="2" placeholder="Tender scope, client notes, or special requirements..." class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-medium focus:bg-white focus:border-blue-600 focus:outline-none"></textarea>
         </div>
 
         <div class="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
           <button type="button" onclick="closeProjectModal()" class="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition">Cancel</button>
-          <button type="submit" class="px-5 py-2 bg-blue-700 text-white font-bold rounded-lg hover:bg-blue-800 transition shadow-sm">Save & Generate Folders</button>
+          <button type="submit" class="px-5 py-2 bg-blue-700 text-white font-bold rounded-lg hover:bg-blue-800 transition shadow-sm">Save & Print Binder Label</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add / Upload Document to Project Dossier -->
+  <div id="modal-document" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div>
+          <h3 class="text-sm font-extrabold text-slate-900 uppercase tracking-wide">File Document into Project Binder</h3>
+          <p class="text-xs text-slate-500">Auto-routes to the correct local folder and updates the live 4G QR passport.</p>
+        </div>
+        <button onclick="closeAddDocumentModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="document-form" onsubmit="handleDocumentSubmit(event)" class="p-6 space-y-4 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">DOCUMENT CATEGORY</label>
+          <select id="form-doc-category" onchange="toggleDocAmountField(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-semibold text-slate-800 focus:bg-white focus:border-blue-600 focus:outline-none">
+            <option value="Tender / Contract">Tender Offer / Contract Document</option>
+            <option value="Drawing / CAD">Engineering Drawing / CAD File</option>
+            <option value="Payment / Invoice">Payment Receipt / Advance Invoice</option>
+            <option value="Packing List">Packing List / Material Delivery Note</option>
+            <option value="Site Report">Site Inspection / Handover Report</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">DOCUMENT OR FILE NAME</label>
+          <input type="text" id="form-doc-filename" required placeholder="e.g. Advance_Payment_Invoice_01.pdf" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-medium focus:bg-white focus:border-blue-600 focus:outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">DATE OF DOCUMENT / UPLOAD</label>
+            <input type="text" id="form-doc-date" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-mono font-medium focus:bg-white focus:border-blue-600 focus:outline-none">
+          </div>
+          <div id="doc-amount-container">
+            <label class="block font-bold text-slate-700 mb-1">PAYMENT AMOUNT (OPTIONAL)</label>
+            <input type="number" id="form-doc-amount" placeholder="0" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-mono font-bold focus:bg-white focus:border-blue-600 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">METADATA / NOTES (OPTIONAL)</label>
+          <input type="text" id="form-doc-notes" placeholder="e.g. Check #4092, Supplier: Frascold Italy, Revision 2" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-medium focus:bg-white focus:border-blue-600 focus:outline-none">
+        </div>
+
+        <div class="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
+          <button type="button" onclick="closeAddDocumentModal()" class="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition">Cancel</button>
+          <button type="submit" class="px-5 py-2 bg-blue-700 text-white font-bold rounded-lg hover:bg-blue-800 transition shadow-sm">Save & File Document</button>
         </div>
       </form>
     </div>

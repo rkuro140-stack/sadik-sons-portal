@@ -3,13 +3,13 @@
  * 100% Zero-Build, Pure Vanilla JS for Cloudflare Pages
  */
 
-// Supabase Configuration (Optional - Connects live when credentials are set)
+// Supabase Configuration (Connects live when credentials are set)
 const SUPABASE_CONFIG = {
   url: "https://your-project.supabase.co", // Replace with your Supabase URL
   anonKey: "your-anon-key"                 // Replace with your Supabase anon public key
 };
 
-// Standard Offline / Fallback Project Registry
+// Standard Offline / Fallback Project Registry with Filed Documents
 const LOCAL_REGISTRY = [
   {
     id: "SS-24-001",
@@ -21,9 +21,16 @@ const LOCAL_REGISTRY = [
     contract_amount: "185,000",
     currency: "LYD",
     paid_amount: "140,000",
-    payment_status: "Partial", // "Paid", "Partial", "Pending"
+    payment_status: "Partial",
     remarks: "Phase 1 ducting approved by supervising engineer. Pressure test for chilled water risers completed successfully.",
-    status: "ACTIVE"
+    status: "ACTIVE",
+    documents: [
+      { filename: "Tender_Offer_Signed_AlNaseem.pdf", category: "Tender / Contract", file_date: "15 Mar 2024", amount: 185000, notes: "Signed commercial offer" },
+      { filename: "HVAC_Shop_Drawings_Rev2.dwg", category: "Drawing / CAD", file_date: "04 Apr 2024", amount: 0, notes: "Approved by supervising consultant" },
+      { filename: "Invoice_Advance_Payment_01.pdf", category: "Payment / Invoice", file_date: "18 Apr 2024", amount: 50000, notes: "Mobilization advance check" },
+      { filename: "Packing_List_Chiller_Valves_PL409.pdf", category: "Packing List", file_date: "12 Jun 2024", amount: 0, notes: "Italian valves customs cleared" },
+      { filename: "Invoice_Interim_Payment_02.pdf", category: "Payment / Invoice", file_date: "20 Jul 2024", amount: 90000, notes: "Chiller piping milestone paid" }
+    ]
   },
   {
     id: "SS-24-002",
@@ -37,7 +44,11 @@ const LOCAL_REGISTRY = [
     paid_amount: "95,000",
     payment_status: "Paid",
     remarks: "Compressor replacement completed on Chiller #2. 12-month preventive maintenance contract signed.",
-    status: "ACTIVE"
+    status: "ACTIVE",
+    documents: [
+      { filename: "Maintenance_Agreement_Signed.pdf", category: "Tender / Contract", file_date: "01 May 2024", amount: 95000, notes: "12-month preventive contract" },
+      { filename: "Full_Payment_Receipt.pdf", category: "Payment / Invoice", file_date: "15 May 2024", amount: 95000, notes: "100% upfront bank transfer" }
+    ]
   },
   {
     id: "SS-23-014",
@@ -51,21 +62,11 @@ const LOCAL_REGISTRY = [
     paid_amount: "288,000",
     payment_status: "Retention Due",
     remarks: "Handover certificate issued Jan 2024. 10% retention (32,000 LYD) scheduled for release Dec 2024.",
-    status: "ARCHIVE"
-  },
-  {
-    id: "SS-23-009",
-    title: "Misrata Port Cold Storage Industrial Ventilation",
-    client: "Free Zone Logistics Authority",
-    site_address: "Misrata Free Zone, Area C",
-    start_date: "05 Feb 2023",
-    end_date: "18 Oct 2023",
-    contract_amount: "410,000",
-    currency: "LYD",
-    paid_amount: "410,000",
-    payment_status: "Paid",
-    remarks: "Full commissioning passed. As-built drawings stored in office binder SS-23-009.",
-    status: "ARCHIVE"
+    status: "ARCHIVE",
+    documents: [
+      { filename: "GECOL_Award_Letter_Contract.pdf", category: "Tender / Contract", file_date: "10 Aug 2023", amount: 320000, notes: "Official ministry contract" },
+      { filename: "Progress_Invoice_01_and_02.pdf", category: "Payment / Invoice", file_date: "15 Dec 2023", amount: 288000, notes: "90% milestones paid" }
+    ]
   }
 ];
 
@@ -92,6 +93,7 @@ const displayPaidAmt = document.getElementById("display-paid-amt");
 const financeProgressBar = document.getElementById("finance-progress-bar");
 const displayFinSubtext = document.getElementById("display-fin-subtext");
 const displayRemarks = document.getElementById("display-remarks");
+const displayDocsList = document.getElementById("display-docs-list");
 const noticeCode = document.getElementById("notice-code");
 const missingCodeText = document.getElementById("missing-code-text");
 
@@ -114,7 +116,7 @@ async function fetchProject(projectCode) {
   // 1. Try Supabase if configured with real project
   if (SUPABASE_CONFIG.url && !SUPABASE_CONFIG.url.includes("your-project") && SUPABASE_CONFIG.anonKey !== "your-anon-key") {
     try {
-      const endpoint = `${SUPABASE_CONFIG.url}/rest/v1/projects?id=eq.${encodeURIComponent(cleanCode)}&select=*`;
+      const endpoint = `${SUPABASE_CONFIG.url}/rest/v1/projects?id=eq.${encodeURIComponent(cleanCode)}&select=*,project_documents(*)`;
       const response = await fetch(endpoint, {
         headers: {
           "apikey": SUPABASE_CONFIG.anonKey,
@@ -124,11 +126,15 @@ async function fetchProject(projectCode) {
       if (response.ok) {
         const data = await response.json();
         if (data && data.length > 0) {
-          return data[0];
+          const p = data[0];
+          return {
+            ...p,
+            documents: p.project_documents || []
+          };
         }
       }
     } catch (err) {
-      console.warn("Supabase fetch failed, falling back to local registry:", err);
+      console.warn("Supabase fetch notice:", err);
     }
   }
 
@@ -200,6 +206,30 @@ function renderProject(project) {
     financeProgressBar.style.background = "#EF4444";
   }
 
+  // Render Filed Documents List in this Binder
+  const docs = project.documents || [];
+  if (displayDocsList) {
+    if (docs.length === 0) {
+      displayDocsList.innerHTML = `<p class="text-xs text-slate-400 py-2">No documents filed in this binder yet.</p>`;
+    } else {
+      displayDocsList.innerHTML = docs.map(d => {
+        const amtStr = d.amount > 0 ? `<span class="doc-amount">${Number(d.amount).toLocaleString()} ${curr}</span>` : '';
+        return `
+          <div class="doc-item-row">
+            <div class="doc-item-header">
+              <span class="doc-name">${d.filename}</span>
+              <span class="doc-tag">${d.category}</span>
+            </div>
+            <div class="doc-meta-row">
+              <span>Filed: ${d.file_date || '—'} ${d.notes ? '• ' + d.notes : ''}</span>
+              ${amtStr}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
   // Smooth scroll to card
   projectCard.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -239,7 +269,6 @@ function renderDirectoryList() {
 // Main Load Function
 async function loadProject(code) {
   if (!code) {
-    // Default to the first active project if no code is in the URL
     code = LOCAL_REGISTRY[0].id;
   }
 
@@ -260,7 +289,6 @@ async function loadProject(code) {
 lookupBtn.addEventListener("click", () => {
   const code = codeInput.value.trim();
   if (code) {
-    // Update URL without reloading
     const newUrl = `${window.location.pathname}?id=${encodeURIComponent(code)}`;
     window.history.pushState({ path: newUrl }, "", newUrl);
     loadProject(code);
