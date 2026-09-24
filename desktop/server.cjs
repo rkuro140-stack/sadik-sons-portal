@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const db = require('./db.cjs');
+const cloudSync = require('./cloudSync.cjs');
 
 const PORT = process.env.PORT || 3000;
 const DIR = __dirname;
@@ -156,6 +157,7 @@ const server = http.createServer(async (req, res) => {
       if (reqPath === '/api/projects' && req.method === 'POST') {
         const body = await parseJsonBody(req);
         const created = db.addProject(body);
+        cloudSync.syncProject(created).catch(() => {});
         return sendJson(res, 201, created);
       }
 
@@ -164,6 +166,7 @@ const server = http.createServer(async (req, res) => {
         const id = decodeURIComponent(reqPath.replace('/api/projects/', ''));
         const body = await parseJsonBody(req);
         const updated = db.updateProject({ ...body, id });
+        cloudSync.syncProject(updated).catch(() => {});
         return sendJson(res, 200, updated);
       }
 
@@ -185,6 +188,9 @@ const server = http.createServer(async (req, res) => {
         const id = decodeURIComponent(reqPath.replace('/api/projects/', '').replace('/documents', ''));
         const body = await parseJsonBody(req);
         const docs = db.addProjectDocument({ ...body, projectId: id });
+        cloudSync.syncDocument({ ...body, projectId: id }).catch(() => {});
+        const updatedProj = db.getProject(id);
+        if (updatedProj) cloudSync.syncProject(updatedProj).catch(() => {});
         return sendJson(res, 201, docs);
       }
 
@@ -192,6 +198,17 @@ const server = http.createServer(async (req, res) => {
       if (reqPath.startsWith('/api/documents/') && req.method === 'DELETE') {
         const docId = decodeURIComponent(reqPath.replace('/api/documents/', ''));
         const result = db.deleteProjectDocument(docId);
+        return sendJson(res, 200, result);
+      }
+
+      // GET /api/cloud-status
+      if (reqPath === '/api/cloud-status' && req.method === 'GET') {
+        return sendJson(res, 200, { configured: cloudSync.isConfigured() });
+      }
+
+      // POST /api/sync-cloud
+      if (reqPath === '/api/sync-cloud' && req.method === 'POST') {
+        const result = await cloudSync.syncAll(db.getProjects(), id => db.getProjectDocuments(id));
         return sendJson(res, 200, result);
       }
 

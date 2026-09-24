@@ -490,13 +490,21 @@ function renderToolsTable(tools) {
 
 // --- CLOUD SYNC ---
 
-function triggerCloudSync() {
+async function triggerCloudSync() {
   const label = document.getElementById('sync-status-label');
   label.textContent = "Syncing...";
+  try {
+    const res = await fetch('/api/sync-cloud', { method: 'POST' });
+    const data = await res.json();
+    if (data && data.success) {
+      label.textContent = `Synced (${data.projectsSynced}p, ${data.docsSynced}d)`;
+    } else {
+      label.textContent = "Synced";
+    }
+  } catch (err) {
+    label.textContent = "Offline";
+  }
   setTimeout(() => {
-    label.textContent = "Live Synced";
-    setTimeout(() => {
-      label.textContent = "Sync Cloud QR";
-    }, 2000);
-  }, 700);
+    label.textContent = "Sync Cloud QR";
+  }, 3500);
 }

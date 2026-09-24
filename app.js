@@ -3,10 +3,10 @@
  * 100% Zero-Build, Pure Vanilla JS for Cloudflare Pages
  */
 
-// Supabase Configuration (Connects live when credentials are set)
+// Supabase Configuration (Connected to live Sadik Sons cloud database)
 const SUPABASE_CONFIG = {
-  url: "https://your-project.supabase.co", // Replace with your Supabase URL
-  anonKey: "your-anon-key"                 // Replace with your Supabase anon public key
+  url: "https://lmkijjefxyyyfjbjuxlk.supabase.co",
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxta2lqamVmeHl5eWZqYmp1eGxrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNDQ3OTUsImV4cCI6MjEwNTgyMDc5NX0.sXOFtHhpvMYuZWwGattFn6FOqu_wCAXEp1AmNhHasqk"
 };
 
 // Standard Offline / Fallback Project Registry with Filed Documents
