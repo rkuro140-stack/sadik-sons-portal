@@ -1,193 +1,229 @@
-const { DatabaseSync } = require('node:sqlite');
+/**
+ * Sadik Sons Enterprise — Universal Database & Storage Layer
+ * Supports both Node 22+ SQLite (DatabaseSync) and Zero-Dependency JSON Storage
+ * Runs seamlessly on macOS (Monterey 12 - Sequoia 15), Windows (10/11), and inside Electron
+ */
+
 const path = require('path');
 const fs = require('fs');
 
-const DB_FILE = path.join(__dirname, 'sadik_sons.db');
-const db = new DatabaseSync(DB_FILE);
+function getDataDir() {
+  try {
+    if (process.versions && process.versions.electron) {
+      const electron = require('electron');
+      const app = electron.app || (electron.remote && electron.remote.app);
+      if (app && app.getPath) {
+        const p = path.join(app.getPath('userData'), 'database');
+        fs.mkdirSync(p, { recursive: true });
+        return p;
+      }
+    }
+  } catch (e) {}
+  return __dirname;
+}
 
-// Enable WAL mode (Write-Ahead Logging) for crash safety & concurrency
-db.exec('PRAGMA journal_mode = WAL;');
+const DATA_DIR = getDataDir();
+const JSON_FILE = path.join(DATA_DIR, 'sadik_sons_data.json');
+const DB_FILE = path.join(DATA_DIR, 'sadik_sons.db');
 
-// Initialize Tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS tools (
-    id TEXT PRIMARY KEY,
-    code TEXT UNIQUE NOT NULL,
-    name TEXT NOT NULL,
-    brand TEXT NOT NULL,
-    model TEXT,
-    category TEXT,
-    serial TEXT,
-    shelf TEXT,
-    status TEXT DEFAULT 'available',
-    assigned_to TEXT,
-    assigned_site TEXT,
-    checkout_time TEXT,
-    expected_return TEXT,
-    condition TEXT DEFAULT 'Good',
-    icon TEXT
-  );
+let sqliteDb = null;
+let useJson = false;
 
-  CREATE TABLE IF NOT EXISTS technicians (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    role TEXT,
-    phone TEXT,
-    dept TEXT,
-    pin TEXT
-  );
+try {
+  const { DatabaseSync } = require('node:sqlite');
+  sqliteDb = new DatabaseSync(DB_FILE);
+  sqliteDb.exec('PRAGMA journal_mode = WAL;');
+  initSqliteTables(sqliteDb);
+} catch (err) {
+  // Running in Electron / Node < 22: use embedded zero-dependency JSON engine
+  useJson = true;
+}
 
-  CREATE TABLE IF NOT EXISTS sites (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT UNIQUE NOT NULL
-  );
+function initSqliteTables(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tools (
+      id TEXT PRIMARY KEY,
+      code TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      brand TEXT NOT NULL,
+      model TEXT,
+      category TEXT,
+      serial TEXT,
+      shelf TEXT,
+      status TEXT DEFAULT 'available',
+      assigned_to TEXT,
+      assigned_site TEXT,
+      checkout_time TEXT,
+      expected_return TEXT,
+      condition TEXT DEFAULT 'Good',
+      icon TEXT
+    );
 
-  CREATE TABLE IF NOT EXISTS audit_logs (
-    id TEXT PRIMARY KEY,
-    timestamp TEXT NOT NULL,
-    action TEXT NOT NULL,
-    tool_id TEXT NOT NULL,
-    tool_name TEXT NOT NULL,
-    technician TEXT NOT NULL,
-    site TEXT,
-    condition TEXT,
-    notes TEXT
-  );
+    CREATE TABLE IF NOT EXISTS technicians (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      role TEXT,
+      phone TEXT,
+      dept TEXT,
+      pin TEXT
+    );
 
-  CREATE TABLE IF NOT EXISTS projects (
-    id TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    client TEXT NOT NULL,
-    site_address TEXT,
-    start_date TEXT,
-    end_date TEXT,
-    contract_amount REAL DEFAULT 0,
-    currency TEXT DEFAULT 'LYD',
-    paid_amount REAL DEFAULT 0,
-    payment_status TEXT DEFAULT 'Pending',
-    remarks TEXT,
-    status TEXT DEFAULT 'ACTIVE',
-    folder_path TEXT,
-    created_at TEXT
-  );
+    CREATE TABLE IF NOT EXISTS sites (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL
+    );
 
-  CREATE TABLE IF NOT EXISTS project_documents (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    project_id TEXT NOT NULL,
-    filename TEXT NOT NULL,
-    category TEXT NOT NULL,
-    file_date TEXT,
-    amount REAL DEFAULT 0,
-    notes TEXT,
-    file_path TEXT,
-    created_at TEXT
-  );
-`);
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      timestamp TEXT NOT NULL,
+      action TEXT NOT NULL,
+      tool_id TEXT NOT NULL,
+      tool_name TEXT NOT NULL,
+      technician TEXT NOT NULL,
+      site TEXT,
+      condition TEXT,
+      notes TEXT
+    );
 
-// Check if tools table is empty, seed if so
-const countQuery = db.prepare('SELECT COUNT(*) as count FROM tools');
-const rowCount = countQuery.get().count;
+    CREATE TABLE IF NOT EXISTS projects (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      client TEXT NOT NULL,
+      site_address TEXT,
+      start_date TEXT,
+      end_date TEXT,
+      contract_amount REAL DEFAULT 0,
+      currency TEXT DEFAULT 'LYD',
+      paid_amount REAL DEFAULT 0,
+      payment_status TEXT DEFAULT 'Pending',
+      remarks TEXT,
+      status TEXT DEFAULT 'ACTIVE',
+      folder_path TEXT,
+      created_at TEXT
+    );
 
-if (rowCount === 0) {
-  console.log('⚡ Seeding initial tools and technicians into SQLite database (sadik_sons.db)...');
-
-  const insertTool = db.prepare(`
-    INSERT INTO tools (id, code, name, brand, model, category, serial, shelf, status, assigned_to, assigned_site, checkout_time, expected_return, condition, icon)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    CREATE TABLE IF NOT EXISTS project_documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      category TEXT NOT NULL,
+      file_date TEXT,
+      amount REAL DEFAULT 0,
+      notes TEXT,
+      file_path TEXT,
+      created_at TEXT
+    );
   `);
+}
 
-  const initialTools = [
-    ['SS-TL-001', 'SS-TL-001', 'Hilti TE 70-ATC Rotary Hammer', 'Hilti', 'TE 70-ATC (SDS Max)', 'Heavy Drills', 'HLT-883921-23', 'Rack A-01', 'checked_out', 'Tariq Mansour', 'Tripoli Port Project', '2026-09-14 08:30', '2026-09-22', 'Good', 'hammer'],
-    ['SS-TL-002', 'SS-TL-002', 'Bosch GWS 2200W Angle Grinder', 'Bosch', 'GWS 2200-230 Heavy Duty', 'Grinders & Saws', 'BSH-2200-9182', 'Rack B-03', 'available', null, null, null, null, 'Good', 'disc'],
-    ['SS-TL-003', 'SS-TL-003', 'DeWalt DWS780 Mitre Saw', 'DeWalt', 'DWS780 305mm Sliding Compound', 'Grinders & Saws', 'DW-780-44910', 'Bay 02 - Floor', 'checked_out', 'Ahmed Al-Hadi', 'Al-Andalus Commercial Center', '2026-09-13 14:15', '2026-09-20', 'Good', 'scissors'],
-    ['SS-TL-004', 'SS-TL-004', 'Fluke 87V Industrial Multimeter', 'Fluke', '87V True-RMS High Accuracy', 'Electrical & Test', 'FLK-87V-10294', 'Cabinet C-Elec-1', 'available', null, null, null, null, 'Good', 'activity'],
-    ['SS-TL-005', 'SS-TL-005', 'Leica DISTO D810 Laser Measure', 'Leica', 'D810 Touch (200m Range)', 'Lasers & Optics', 'LCA-D810-7731', 'Cabinet A-Laser', 'checked_out', 'Youssef Salem', 'Benghazi Substation A', '2026-09-15 07:10', '2026-09-21', 'Good', 'crosshair'],
-    ['SS-TL-006', 'SS-TL-006', 'Makita DTD152 Impact Driver 18V', 'Makita', 'DTD152Z 165Nm Cordless', 'Heavy Drills', 'MKT-152-88219', 'Rack A-04', 'available', null, null, null, null, 'Good', 'drill'],
-    ['SS-TL-007', 'SS-TL-007', 'Honda EU30is Inverter Generator', 'Honda', 'EU30is 3.0kVA Silent', 'Power & Generators', 'HND-EU30-5510', 'Ground Yard - G1', 'checked_out', 'Omar Benali', 'Misrata Industrial Zone', '2026-09-12 11:00', '2026-09-20', 'Good', 'zap'],
-    ['SS-TL-008', 'SS-TL-008', 'Milwaukee M18 Fuel Pipe Threader', 'Milwaukee', 'M18 FPT2-0C 2-Inch Compact', 'Grinders & Saws', 'MLW-M18-0922', 'Rack B-06', 'maintenance', null, null, null, null, 'Blade worn - servicing motor brushes', 'tool'],
-    ['SS-TL-009', 'SS-TL-009', 'Hilti PR 30-HVS Rotating Laser', 'Hilti', 'PR 30-HVS Outdoor Horizontal/Vertical', 'Lasers & Optics', 'HLT-PR30-1928', 'Cabinet A-Laser', 'checked_out', 'Khaled Zaid', 'Tripoli Port Project', '2026-09-15 08:00', '2026-09-23', 'Good', 'radar'],
-    ['SS-TL-010', 'SS-TL-010', 'Bosch Professional Line Laser GLL 3-80', 'Bosch', 'GLL 3-80 C 3x360°', 'Lasers & Optics', 'BSH-GLL-6110', 'Cabinet A-Laser', 'available', null, null, null, null, 'Good', 'crosshair'],
-    ['SS-TL-011', 'SS-TL-011', 'Knipex Master Electrician Set (1000V)', 'Knipex', 'VDE Insulated 12-Piece Case', 'Electrical & Test', 'KNP-VDE-38102', 'Cabinet C-Elec-2', 'available', null, null, null, null, 'Good', 'briefcase'],
-    ['SS-TL-012', 'SS-TL-012', 'DeWalt D25980 Demolition Breaker', 'DeWalt', 'D25980 30kg Pavement Breaker', 'Heavy Drills', 'DW-BRK-9901', 'Bay 01 - Heavy', 'checked_out', 'Tariq Mansour', 'Tripoli Port Project', '2026-09-14 09:10', '2026-09-22', 'Good', 'hammer']
-  ];
+// Default Seed Data
+const DEFAULT_STORE = {
+  projects: [
+    {
+      id: 'SS-24-001',
+      title: 'Tripoli Commercial Center — HVAC & Piping',
+      client: 'Al-Naseem Contracting Group',
+      site_address: 'Hai Al-Andalus, Tripoli, Libya',
+      start_date: '15 Mar 2024',
+      end_date: '30 Nov 2024',
+      contract_amount: 185000,
+      currency: 'LYD',
+      paid_amount: 140000,
+      payment_status: 'Partial',
+      remarks: 'Phase 1 ducting approved by supervising engineer.',
+      status: 'ACTIVE',
+      created_at: '2024-03-15 09:00'
+    },
+    {
+      id: 'SS-24-002',
+      title: 'Palm City Luxury Residences — Chiller Overhaul',
+      client: 'Palm City Facility Management',
+      site_address: 'Janzour Seaside Road, Tripoli',
+      start_date: '01 May 2024',
+      end_date: '15 Dec 2024',
+      contract_amount: 95000,
+      currency: 'LYD',
+      paid_amount: 95000,
+      payment_status: 'Paid',
+      remarks: 'Compressor replacement completed on Chiller #2.',
+      status: 'ACTIVE',
+      created_at: '2024-05-01 10:00'
+    },
+    {
+      id: 'SS-23-014',
+      title: 'Al-Dahra Substation — Fire Suppression Retrofit',
+      client: 'GECOL (General Electric Company)',
+      site_address: 'Al-Dahra Sector, Tripoli',
+      start_date: '10 Aug 2023',
+      end_date: '25 Jan 2024',
+      contract_amount: 320000,
+      currency: 'LYD',
+      paid_amount: 288000,
+      payment_status: 'Retention Due',
+      remarks: 'Handover certificate issued Jan 2024.',
+      status: 'ARCHIVE',
+      created_at: '2023-08-10 11:00'
+    }
+  ],
+  project_documents: [
+    { id: 1, project_id: 'SS-24-001', filename: 'Tender_Offer_Signed_AlNaseem.pdf', category: 'Tender / Contract', file_date: '15 Mar 2024', amount: 185000, notes: 'Signed commercial offer' },
+    { id: 2, project_id: 'SS-24-001', filename: 'HVAC_Shop_Drawings_Rev2.dwg', category: 'Drawing / CAD', file_date: '04 Apr 2024', amount: 0, notes: 'Approved by supervising consultant' },
+    { id: 3, project_id: 'SS-24-001', filename: 'Invoice_Advance_Payment_01.pdf', category: 'Payment / Invoice', file_date: '18 Apr 2024', amount: 50000, notes: 'Mobilization advance check' },
+    { id: 4, project_id: 'SS-24-001', filename: 'Packing_List_Chiller_Valves_PL409.pdf', category: 'Packing List', file_date: '12 Jun 2024', amount: 0, notes: 'Italian valves customs cleared' },
+    { id: 5, project_id: 'SS-24-001', filename: 'Invoice_Interim_Payment_02.pdf', category: 'Payment / Invoice', file_date: '20 Jul 2024', amount: 90000, notes: 'Chiller piping milestone paid' },
+    { id: 6, project_id: 'SS-24-002', filename: 'Maintenance_Agreement_Signed.pdf', category: 'Tender / Contract', file_date: '01 May 2024', amount: 95000, notes: '12-month preventive contract' },
+    { id: 7, project_id: 'SS-24-002', filename: 'Full_Payment_Receipt.pdf', category: 'Payment / Invoice', file_date: '15 May 2024', amount: 95000, notes: '100% upfront bank transfer' },
+    { id: 8, project_id: 'SS-23-014', filename: 'GECOL_Award_Letter_Contract.pdf', category: 'Tender / Contract', file_date: '10 Aug 2023', amount: 320000, notes: 'Official ministry contract' },
+    { id: 9, project_id: 'SS-23-014', filename: 'Progress_Invoice_01_and_02.pdf', category: 'Payment / Invoice', file_date: '15 Dec 2023', amount: 288000, notes: '90% milestones paid' }
+  ],
+  tools: [
+    { id: 'SS-TL-001', code: 'SS-TL-001', name: 'Hilti TE 70-ATC Rotary Hammer', brand: 'Hilti', model: 'TE 70-ATC (SDS Max)', category: 'Heavy Drills', serial: 'HLT-883921-23', shelf: 'Rack A-01', status: 'checked_out', assigned_to: 'Tariq Mansour', assigned_site: 'Tripoli Port Project', checkout_time: '2026-09-14 08:30', expected_return: '2026-09-22', condition: 'Good', icon: 'hammer' },
+    { id: 'SS-TL-002', code: 'SS-TL-002', name: 'Fluke 87V Industrial Multimeter', brand: 'Fluke', model: '87V True-RMS', category: 'Electrical Testing', serial: 'FLK-449102-19', shelf: 'Locker E-03', status: 'available', assigned_to: null, assigned_site: null, checkout_time: null, expected_return: null, condition: 'Good', icon: 'zap' },
+    { id: 'SS-TL-003', code: 'SS-TL-003', name: 'RIDGID 300 Compact Threading Machine', brand: 'RIDGID', model: '300 Compact 2"', category: 'Pipe Tools', serial: 'RDG-102934-21', shelf: 'Floor Bay B-02', status: 'checked_out', assigned_to: 'Ahmed Ben Ali', assigned_site: 'Al-Dahra Substation', checkout_time: '2026-09-10 07:15', expected_return: '2026-09-25', condition: 'Fair', icon: 'wrench' }
+  ],
+  technicians: [
+    { id: 'T1', name: 'Tariq Mansour', role: 'Lead Mechanical Tech', phone: '+218 91 234 5678', dept: 'Mechanical', pin: '1234' },
+    { id: 'T2', name: 'Ahmed Ben Ali', role: 'Senior Pipefitter', phone: '+218 92 345 6789', dept: 'Piping', pin: '5678' }
+  ],
+  sites: [
+    { id: 1, name: 'Tripoli Commercial Center' },
+    { id: 2, name: 'Palm City Luxury Residences' },
+    { id: 3, name: 'Al-Dahra Substation' }
+  ],
+  audit_logs: []
+};
 
-  initialTools.forEach(t => insertTool.run(...t));
+// In-Memory store for JSON Engine
+let store = null;
 
-  const insertTech = db.prepare(`
-    INSERT INTO technicians (id, name, role, phone, dept, pin)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
+function loadStore() {
+  if (store) return store;
+  try {
+    if (fs.existsSync(JSON_FILE)) {
+      store = JSON.parse(fs.readFileSync(JSON_FILE, 'utf8'));
+      return store;
+    }
+  } catch (err) {
+    console.warn('Notice reading JSON store:', err.message);
+  }
+  store = JSON.parse(JSON.stringify(DEFAULT_STORE));
+  saveStore();
+  return store;
+}
 
-  const initialTechs = [
-    ['T-01', 'Tariq Mansour', 'Lead Civil & Structural Tech', '+218 91 234 5678', 'Heavy Machinery', '1122'],
-    ['T-02', 'Ahmed Al-Hadi', 'Senior Carpenter & Joiner', '+218 92 345 6789', 'Finishing & Woodwork', '2233'],
-    ['T-03', 'Youssef Salem', 'Site Surveyor & Quality Inspector', '+218 91 456 7890', 'Engineering & Survey', '3344'],
-    ['T-04', 'Omar Benali', 'Chief Electrical Technician', '+218 92 567 8901', 'High Voltage & Power', '4455'],
-    ['T-05', 'Khaled Zaid', 'HVAC & Plumbing Lead', '+218 91 678 9012', 'Mechanical Services', '5566']
-  ];
-  initialTechs.forEach(tech => insertTech.run(...tech));
-
-  const insertSite = db.prepare('INSERT OR IGNORE INTO sites (name) VALUES (?)');
-  const initialSites = [
-    'Tripoli Port Project',
-    'Benghazi Substation A',
-    'Al-Andalus Commercial Center',
-    'Misrata Industrial Zone',
-    'Central Workshop'
-  ];
-  initialSites.forEach(s => insertSite.run(s));
-
-  const insertLog = db.prepare(`
-    INSERT INTO audit_logs (id, timestamp, action, tool_id, tool_name, technician, site, condition, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const initialLogs = [
-    ['LOG-109', '2026-09-15 08:00', 'CHECK_OUT', 'SS-TL-009', 'Hilti PR 30-HVS Rotating Laser', 'Khaled Zaid', 'Tripoli Port Project', 'Good', 'Includes tripod & detector staff'],
-    ['LOG-108', '2026-09-15 07:10', 'CHECK_OUT', 'SS-TL-005', 'Leica DISTO D810 Laser Measure', 'Youssef Salem', 'Benghazi Substation A', 'Good', 'Site survey measurement']
-  ];
-  initialLogs.forEach(l => insertLog.run(...l));
-
-  // Seed Initial Projects
-  const insertProject = db.prepare(`
-    INSERT INTO projects (id, title, client, site_address, start_date, end_date, contract_amount, currency, paid_amount, payment_status, remarks, status, folder_path, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const initialProjects = [
-    ['SS-24-001', 'Tripoli Commercial Center — HVAC & Piping', 'Al-Naseem Contracting Group', 'Hai Al-Andalus, Tripoli, Libya', '15 Mar 2024', '30 Nov 2024', 185000, 'LYD', 140000, 'Partial', 'Phase 1 ducting approved by supervising engineer. Pressure test for chilled water risers completed successfully.', 'ACTIVE', '', '2024-03-15 09:00'],
-    ['SS-24-002', 'Palm City Luxury Residences — Chiller Overhaul', 'Palm City Facility Management', 'Janzour Seaside Road, Tripoli', '01 May 2024', '15 Dec 2024', 95000, 'LYD', 95000, 'Paid', 'Compressor replacement completed on Chiller #2. 12-month preventive maintenance contract signed.', 'ACTIVE', '', '2024-05-01 10:00'],
-    ['SS-23-014', 'Al-Dahra Substation — Fire Suppression Retrofit', 'GECOL (General Electric Company)', 'Al-Dahra Sector, Tripoli', '10 Aug 2023', '25 Jan 2024', 320000, 'LYD', 288000, 'Retention Due', 'Handover certificate issued Jan 2024. 10% retention (32,000 LYD) scheduled for release Dec 2024.', 'ARCHIVE', '', '2023-08-10 11:00']
-  ];
-  initialProjects.forEach(p => insertProject.run(...p));
-
-  // Seed Initial Documents
-  const insertDoc = db.prepare(`
-    INSERT INTO project_documents (project_id, filename, category, file_date, amount, notes, file_path, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const initialDocs = [
-    ['SS-24-001', 'Tender_Offer_Signed_AlNaseem.pdf', 'Tender / Contract', '15 Mar 2024', 185000, 'Original signed commercial & technical offer', '', '2024-03-15 09:30'],
-    ['SS-24-001', 'HVAC_Shop_Drawings_Rev2.dwg', 'Drawing / CAD', '04 Apr 2024', 0, 'Ductwork routing approved by supervising consultant', '', '2024-04-04 11:00'],
-    ['SS-24-001', 'Invoice_Advance_Payment_01.pdf', 'Payment / Invoice', '18 Apr 2024', 50000, 'First mobilization advance check received', '', '2024-04-18 14:00'],
-    ['SS-24-001', 'Packing_List_Chiller_Valves_PL409.pdf', 'Packing List', '12 Jun 2024', 0, 'Imported from Italy via Tripoli Port (Customs cleared)', '', '2024-06-12 10:15'],
-    ['SS-24-001', 'Invoice_Interim_Payment_02.pdf', 'Payment / Invoice', '20 Jul 2024', 90000, 'Interim invoice for chiller piping milestone', '', '2024-07-20 16:30'],
-    ['SS-24-002', 'Maintenance_Agreement_Signed.pdf', 'Tender / Contract', '01 May 2024', 95000, 'Comprehensive annual chiller maintenance', '', '2024-05-01 10:30'],
-    ['SS-24-002', 'Full_Payment_Receipt.pdf', 'Payment / Invoice', '15 May 2024', 95000, '100% upfront payment received via bank transfer', '', '2024-05-15 11:00'],
-    ['SS-23-014', 'GECOL_Award_Letter_Contract.pdf', 'Tender / Contract', '10 Aug 2023', 320000, 'Official award for substation fire suppression', '', '2023-08-10 11:30'],
-    ['SS-23-014', 'Progress_Invoice_01_and_02.pdf', 'Payment / Invoice', '15 Dec 2023', 288000, 'Total milestones paid (90%). 10% retention pending', '', '2023-12-15 15:00']
-  ];
-  initialDocs.forEach(d => insertDoc.run(...d));
+function saveStore() {
+  try {
+    const tmp = `${JSON_FILE}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(store, null, 2), 'utf8');
+    fs.renameSync(tmp, JSON_FILE);
+  } catch (err) {
+    console.warn('Notice saving JSON store:', err.message);
+  }
 }
 
 function getArchiveBasePath() {
-  const os = require('os');
-  if (process.platform === 'win32') {
-    return path.join('C:', 'Sadik_Sons_Archive', 'Projects');
-  } else {
-    return path.join(os.homedir(), 'Documents', 'Sadik_Sons_Archive', 'Projects');
-  }
+  const isWindows = process.platform === 'win32';
+  return isWindows ? 'C:\\Sadik_Sons_Archive\\Projects' : path.join(require('os').homedir(), 'Sadik_Sons_Archive', 'Projects');
 }
 
 function ensureProjectFolders(project) {
@@ -211,7 +247,6 @@ function ensureProjectFolders(project) {
 
     return projectDir;
   } catch (err) {
-    console.warn('Folder creation notice:', err.message);
     return '';
   }
 }
@@ -226,356 +261,323 @@ function getNowString() {
   return `${y}-${m}-${d} ${hh}:${mm}`;
 }
 
-// Convert row to camelCase for API compatibility
-function mapToolRow(r) {
-  if (!r) return null;
-  return {
-    id: r.id,
-    code: r.code,
-    name: r.name,
-    brand: r.brand,
-    model: r.model,
-    category: r.category,
-    serial: r.serial,
-    shelf: r.shelf,
-    status: r.status,
-    assignedTo: r.assigned_to,
-    assignedSite: r.assigned_site,
-    checkoutTime: r.checkout_time,
-    expectedReturn: r.expected_return,
-    condition: r.condition,
-    icon: r.icon
-  };
-}
-
-const sqliteService = {
+const dbService = {
   getTools() {
-    const rows = db.prepare('SELECT * FROM tools ORDER BY id ASC').all();
-    return rows.map(mapToolRow);
-  },
-
-  getTool(idOrCode) {
-    const clean = String(idOrCode).trim().toUpperCase();
-    const row = db.prepare('SELECT * FROM tools WHERE UPPER(id) = ? OR UPPER(code) = ?').get(clean, clean);
-    return mapToolRow(row);
-  },
-
-  addTool(tool) {
-    const count = db.prepare('SELECT COUNT(*) as count FROM tools').get().count + 1;
-    const code = tool.code || `SS-TL-${String(count).padStart(3, '0')}`;
-    const id = code;
-
-    const stmt = db.prepare(`
-      INSERT INTO tools (id, code, name, brand, model, category, serial, shelf, status, condition, icon)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'available', 'Good', ?)
-    `);
-
-    stmt.run(
-      id,
-      code,
-      tool.name || 'Untitled Tool',
-      tool.brand || 'Generic',
-      tool.model || '',
-      tool.category || 'Hand Tools',
-      tool.serial || 'SN-' + Date.now().toString().slice(-6),
-      tool.shelf || 'Main Crib',
-      tool.icon || 'wrench'
-    );
-
-    return this.getTool(id);
-  },
-
-  checkoutTool({ toolId, technicianName, site, expectedReturn, notes }) {
-    const clean = String(toolId).trim().toUpperCase();
-    const tool = this.getTool(clean);
-    if (!tool) throw new Error('Tool not found');
-    if (tool.status === 'checked_out') throw new Error(`Tool is already checked out to ${tool.assignedTo}`);
-    if (tool.status === 'maintenance') throw new Error(`Tool is currently in maintenance and cannot be dispatched`);
-
-    const nowStr = getNowString();
-
-    db.prepare(`
-      UPDATE tools
-      SET status = 'checked_out',
-          assigned_to = ?,
-          assigned_site = ?,
-          checkout_time = ?,
-          expected_return = ?
-      WHERE UPPER(id) = ? OR UPPER(code) = ?
-    `).run(technicianName, site || 'Job Site', nowStr, expectedReturn || '', clean, clean);
-
-    // Insert Audit Log
-    const logId = 'LOG-' + Math.floor(1000 + Math.random() * 9000);
-    db.prepare(`
-      INSERT INTO audit_logs (id, timestamp, action, tool_id, tool_name, technician, site, condition, notes)
-      VALUES (?, ?, 'CHECK_OUT', ?, ?, ?, ?, ?, ?)
-    `).run(logId, nowStr, tool.id, tool.name, technicianName, site || 'Job Site', tool.condition || 'Good', notes || 'Checked out to job site');
-
-    return this.getTool(clean);
-  },
-
-  checkinTool({ toolId, condition, shelf, notes }) {
-    const clean = String(toolId).trim().toUpperCase();
-    const tool = this.getTool(clean);
-    if (!tool) throw new Error('Tool not found');
-
-    const prevTech = tool.assignedTo || 'Technician';
-    const prevSite = tool.assignedSite || 'Job Site';
-    const nowStr = getNowString();
-    const newStatus = condition === 'Damaged' ? 'maintenance' : 'available';
-
-    db.prepare(`
-      UPDATE tools
-      SET status = ?,
-          condition = ?,
-          assigned_to = NULL,
-          assigned_site = NULL,
-          checkout_time = NULL,
-          expected_return = NULL,
-          shelf = COALESCE(?, shelf)
-      WHERE UPPER(id) = ? OR UPPER(code) = ?
-    `).run(newStatus, condition || 'Good', shelf || null, clean, clean);
-
-    // Insert Audit Log
-    const logId = 'LOG-' + Math.floor(1000 + Math.random() * 9000);
-    db.prepare(`
-      INSERT INTO audit_logs (id, timestamp, action, tool_id, tool_name, technician, site, condition, notes)
-      VALUES (?, ?, 'CHECK_IN', ?, ?, ?, ?, ?, ?)
-    `).run(logId, nowStr, tool.id, tool.name, prevTech, prevSite, condition || 'Good', notes || 'Returned to tool crib');
-
-    return this.getTool(clean);
-  },
-
-  getTechnicians() {
-    return db.prepare('SELECT * FROM technicians ORDER BY id ASC').all();
-  },
-
-  getSites() {
-    const rows = db.prepare('SELECT name FROM sites ORDER BY name ASC').all();
-    return rows.map(r => r.name);
-  },
-
-  getLogs() {
-    const rows = db.prepare('SELECT * FROM audit_logs ORDER BY timestamp DESC').all();
-    return rows.map(r => ({
-      id: r.id,
-      timestamp: r.timestamp,
-      action: r.action,
-      toolId: r.tool_id,
-      toolName: r.tool_name,
-      technician: r.technician,
-      site: r.site,
-      condition: r.condition,
-      notes: r.notes
+    if (useJson) return loadStore().tools;
+    return sqliteDb.prepare('SELECT * FROM tools ORDER BY id ASC').all().map(r => ({
+      id: r.id, code: r.code, name: r.name, brand: r.brand, model: r.model,
+      category: r.category, serial: r.serial, shelf: r.shelf, status: r.status,
+      assignedTo: r.assigned_to, assignedSite: r.assigned_site, checkoutTime: r.checkout_time,
+      expectedReturn: r.expected_return, condition: r.condition, icon: r.icon
     }));
   },
 
-  getStats() {
-    const total = db.prepare('SELECT COUNT(*) as c FROM tools').get().c;
-    const inField = db.prepare("SELECT COUNT(*) as c FROM tools WHERE status = 'checked_out'").get().c;
-    const available = db.prepare("SELECT COUNT(*) as c FROM tools WHERE status = 'available'").get().c;
-    const maintenance = db.prepare("SELECT COUNT(*) as c FROM tools WHERE status = 'maintenance'").get().c;
-    return { total, inField, available, maintenance };
+  getTool(id) {
+    if (useJson) return loadStore().tools.find(t => t.id === id) || null;
+    const r = sqliteDb.prepare('SELECT * FROM tools WHERE id = ?').get(id);
+    if (!r) return null;
+    return {
+      id: r.id, code: r.code, name: r.name, brand: r.brand, model: r.model,
+      category: r.category, serial: r.serial, shelf: r.shelf, status: r.status,
+      assignedTo: r.assigned_to, assignedSite: r.assigned_site, checkoutTime: r.checkout_time,
+      expectedReturn: r.expected_return, condition: r.condition, icon: r.icon
+    };
   },
 
-  // --- PROJECTS ARCHIVE CRUD ---
+  addTool(tool) {
+    if (useJson) {
+      const s = loadStore();
+      const newTool = { ...tool, id: tool.id || `SS-TL-${String(s.tools.length + 1).padStart(3, '0')}`, status: 'available' };
+      s.tools.push(newTool);
+      saveStore();
+      return newTool;
+    }
+    const newId = tool.id || `SS-TL-${String(sqliteDb.prepare('SELECT COUNT(*) as c FROM tools').get().c + 1).padStart(3, '0')}`;
+    sqliteDb.prepare(`
+      INSERT INTO tools (id, code, name, brand, model, category, serial, shelf, status, condition, icon)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'available', ?, ?)
+    `).run(newId, tool.code || newId, tool.name, tool.brand, tool.model || '', tool.category || '', tool.serial || '', tool.shelf || '', tool.condition || 'Good', tool.icon || 'tool');
+    return this.getTool(newId);
+  },
+
+  checkoutTool({ toolId, technician, site, returnDate, notes }) {
+    const now = getNowString();
+    if (useJson) {
+      const s = loadStore();
+      const tool = s.tools.find(t => t.id === toolId);
+      if (tool) {
+        tool.status = 'checked_out';
+        tool.assigned_to = technician;
+        tool.assigned_site = site;
+        tool.checkout_time = now;
+        tool.expected_return = returnDate || null;
+        s.audit_logs.unshift({ id: `log-${Date.now()}`, timestamp: now, action: 'CHECKOUT', tool_id: tool.id, tool_name: tool.name, technician, site, condition: tool.condition, notes: notes || '' });
+        saveStore();
+        return tool;
+      }
+      return null;
+    }
+    sqliteDb.prepare(`
+      UPDATE tools SET status = 'checked_out', assigned_to = ?, assigned_site = ?, checkout_time = ?, expected_return = ? WHERE id = ?
+    `).run(technician, site, now, returnDate || null, toolId);
+    return this.getTool(toolId);
+  },
+
+  checkinTool({ toolId, condition, notes }) {
+    const now = getNowString();
+    if (useJson) {
+      const s = loadStore();
+      const tool = s.tools.find(t => t.id === toolId);
+      if (tool) {
+        tool.status = 'available';
+        tool.assigned_to = null;
+        tool.assigned_site = null;
+        tool.checkout_time = null;
+        tool.expected_return = null;
+        tool.condition = condition || tool.condition;
+        s.audit_logs.unshift({ id: `log-${Date.now()}`, timestamp: now, action: 'CHECKIN', tool_id: tool.id, tool_name: tool.name, technician: 'Office', site: 'Warehouse', condition: condition || tool.condition, notes: notes || '' });
+        saveStore();
+        return tool;
+      }
+      return null;
+    }
+    sqliteDb.prepare(`
+      UPDATE tools SET status = 'available', assigned_to = NULL, assigned_site = NULL, checkout_time = NULL, expected_return = NULL, condition = ? WHERE id = ?
+    `).run(condition || 'Good', toolId);
+    return this.getTool(toolId);
+  },
+
+  getTechnicians() {
+    if (useJson) return loadStore().technicians;
+    return sqliteDb.prepare('SELECT * FROM technicians ORDER BY name ASC').all();
+  },
+
+  getSites() {
+    if (useJson) return loadStore().sites;
+    return sqliteDb.prepare('SELECT * FROM sites ORDER BY name ASC').all();
+  },
+
+  getLogs() {
+    if (useJson) return loadStore().audit_logs;
+    return sqliteDb.prepare('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 100').all();
+  },
+
+  getStats() {
+    if (useJson) {
+      const s = loadStore();
+      const total = s.tools.length;
+      const checkedOut = s.tools.filter(t => t.status === 'checked_out').length;
+      return { total, available: total - checkedOut, checkedOut, maintenance: 0 };
+    }
+    const tools = this.getTools();
+    const total = tools.length;
+    const checkedOut = tools.filter(t => t.status === 'checked_out').length;
+    return { total, available: total - checkedOut, checkedOut, maintenance: 0 };
+  },
+
   getProjects() {
-    return db.prepare('SELECT * FROM projects ORDER BY id DESC').all();
+    if (useJson) return loadStore().projects;
+    return sqliteDb.prepare('SELECT * FROM projects ORDER BY id DESC').all();
   },
 
   getProject(id) {
-    const clean = String(id).trim().toUpperCase();
-    return db.prepare('SELECT * FROM projects WHERE UPPER(id) = ?').get(clean);
+    const cleanId = String(id || '').trim().toUpperCase();
+    if (useJson) return loadStore().projects.find(p => p.id.toUpperCase() === cleanId) || null;
+    return sqliteDb.prepare('SELECT * FROM projects WHERE UPPER(id) = ?').get(cleanId);
   },
 
-  addProject(data) {
-    if (!data.id) throw new Error('Project Code is required (e.g. SS-24-001)');
-    const cleanId = String(data.id).trim().toUpperCase();
-    const existing = this.getProject(cleanId);
-    if (existing) throw new Error(`Project ${cleanId} already exists!`);
+  addProject(project) {
+    const cleanId = String(project.id || '').trim().toUpperCase();
+    const folderPath = ensureProjectFolders({ ...project, id: cleanId });
+    const nowStr = getNowString();
 
-    const folderPath = ensureProjectFolders({ ...data, id: cleanId });
+    const record = {
+      id: cleanId,
+      title: project.title || 'Untitled Project',
+      client: project.client || 'Unknown Client',
+      site_address: project.siteAddress || project.site_address || '',
+      start_date: project.startDate || project.start_date || '',
+      end_date: project.endDate || project.end_date || '',
+      contract_amount: Number(project.contractAmount || project.contract_amount) || 0,
+      currency: project.currency || 'LYD',
+      paid_amount: Number(project.paidAmount || project.paid_amount) || 0,
+      payment_status: project.paymentStatus || project.payment_status || 'Pending',
+      remarks: project.remarks || '',
+      status: project.status || 'ACTIVE',
+      folder_path: folderPath,
+      created_at: nowStr
+    };
 
-    db.prepare(`
+    if (useJson) {
+      const s = loadStore();
+      const existingIdx = s.projects.findIndex(p => p.id.toUpperCase() === cleanId);
+      if (existingIdx >= 0) s.projects[existingIdx] = record;
+      else s.projects.unshift(record);
+      saveStore();
+      return record;
+    }
+
+    sqliteDb.prepare(`
       INSERT INTO projects (id, title, client, site_address, start_date, end_date, contract_amount, currency, paid_amount, payment_status, remarks, status, folder_path, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      cleanId,
-      data.title || 'Untitled Project',
-      data.client || 'Client',
-      data.site_address || 'Tripoli, Libya',
-      data.start_date || '',
-      data.end_date || '',
-      Number(data.contract_amount) || 0,
-      data.currency || 'LYD',
-      Number(data.paid_amount) || 0,
-      data.payment_status || 'Pending',
-      data.remarks || '',
-      data.status || 'ACTIVE',
-      folderPath || '',
-      getNowString()
-    );
+    `).run(record.id, record.title, record.client, record.site_address, record.start_date, record.end_date, record.contract_amount, record.currency, record.paid_amount, record.payment_status, record.remarks, record.status, record.folder_path, record.created_at);
 
     return this.getProject(cleanId);
   },
 
-  updateProject(data) {
-    const cleanId = String(data.id).trim().toUpperCase();
-    const existing = this.getProject(cleanId);
-    if (!existing) throw new Error(`Project ${cleanId} not found`);
-
-    let folderPath = existing.folder_path;
-    if (!folderPath || !fs.existsSync(folderPath)) {
-      folderPath = ensureProjectFolders({ ...data, id: cleanId });
+  updateProject(project) {
+    const cleanId = String(project.id || '').trim().toUpperCase();
+    if (useJson) {
+      const s = loadStore();
+      const existing = s.projects.find(p => p.id.toUpperCase() === cleanId);
+      if (!existing) return null;
+      Object.assign(existing, project, { id: cleanId });
+      saveStore();
+      return existing;
     }
-
-    db.prepare(`
-      UPDATE projects
-      SET title = COALESCE(?, title),
-          client = COALESCE(?, client),
-          site_address = COALESCE(?, site_address),
-          start_date = COALESCE(?, start_date),
-          end_date = COALESCE(?, end_date),
-          contract_amount = COALESCE(?, contract_amount),
-          currency = COALESCE(?, currency),
-          paid_amount = COALESCE(?, paid_amount),
-          payment_status = COALESCE(?, payment_status),
-          remarks = COALESCE(?, remarks),
-          status = COALESCE(?, status),
-          folder_path = COALESCE(?, folder_path)
+    sqliteDb.prepare(`
+      UPDATE projects SET 
+        title = COALESCE(?, title),
+        client = COALESCE(?, client),
+        site_address = COALESCE(?, site_address),
+        start_date = COALESCE(?, start_date),
+        end_date = COALESCE(?, end_date),
+        contract_amount = COALESCE(?, contract_amount),
+        currency = COALESCE(?, currency),
+        paid_amount = COALESCE(?, paid_amount),
+        payment_status = COALESCE(?, payment_status),
+        remarks = COALESCE(?, remarks),
+        status = COALESCE(?, status)
       WHERE UPPER(id) = ?
-    `).run(
-      data.title,
-      data.client,
-      data.site_address,
-      data.start_date,
-      data.end_date,
-      data.contract_amount,
-      data.currency,
-      data.paid_amount,
-      data.payment_status,
-      data.remarks,
-      data.status,
-      folderPath,
-      cleanId
-    );
-
+    `).run(project.title, project.client, project.siteAddress || project.site_address, project.startDate || project.start_date, project.endDate || project.end_date, project.contractAmount || project.contract_amount, project.currency, project.paidAmount || project.paid_amount, project.paymentStatus || project.payment_status, project.remarks, project.status, cleanId);
     return this.getProject(cleanId);
   },
 
   deleteProject(id) {
-    const cleanId = String(id).trim().toUpperCase();
-    db.prepare('DELETE FROM projects WHERE UPPER(id) = ?').run(cleanId);
-    return { success: true, deletedId: cleanId };
+    const cleanId = String(id || '').trim().toUpperCase();
+    if (useJson) {
+      const s = loadStore();
+      s.projects = s.projects.filter(p => p.id.toUpperCase() !== cleanId);
+      s.project_documents = s.project_documents.filter(d => (d.project_id || '').toUpperCase() !== cleanId);
+      saveStore();
+      return { success: true };
+    }
+    sqliteDb.prepare('DELETE FROM project_documents WHERE UPPER(project_id) = ?').run(cleanId);
+    sqliteDb.prepare('DELETE FROM projects WHERE UPPER(id) = ?').run(cleanId);
+    return { success: true };
   },
 
-  openProjectFolder(id) {
-    const project = this.getProject(id);
-    if (!project) throw new Error('Project not found');
-    let targetDir = project.folder_path;
-    if (!targetDir || !fs.existsSync(targetDir)) {
-      targetDir = ensureProjectFolders(project);
-    }
-
-    const { exec } = require('child_process');
-    if (process.platform === 'win32') {
-      exec(`explorer.exe "${targetDir}"`);
-    } else if (process.platform === 'darwin') {
-      exec(`open "${targetDir}"`);
-    } else {
-      exec(`xdg-open "${targetDir}"`);
-    }
-    return { success: true, path: targetDir };
-  },
-
-  // --- PROJECT DOCUMENTS & DOSSIER ---
   getProjectDocuments(projectId) {
-    const cleanId = String(projectId).trim().toUpperCase();
-    return db.prepare('SELECT * FROM project_documents WHERE UPPER(project_id) = ? ORDER BY id DESC').all(cleanId);
+    const cleanId = String(projectId || '').trim().toUpperCase();
+    if (useJson) {
+      return loadStore().project_documents.filter(d => (d.project_id || '').toUpperCase() === cleanId).reverse();
+    }
+    return sqliteDb.prepare('SELECT * FROM project_documents WHERE UPPER(project_id) = ? ORDER BY id DESC').all(cleanId);
   },
 
   addProjectDocument(doc) {
-    if (!doc.projectId) throw new Error('Project ID is required');
-    const cleanId = String(doc.projectId).trim().toUpperCase();
+    const cleanId = String(doc.projectId || doc.project_id || '').trim().toUpperCase();
     const project = this.getProject(cleanId);
     if (!project) throw new Error(`Project ${cleanId} not found`);
 
     const nowStr = getNowString();
     const amountVal = Number(doc.amount) || 0;
+    const cat = doc.category || 'Tender / Contract';
+    const catLower = cat.toLowerCase();
 
-    const result = db.prepare(`
+    if (useJson) {
+      const s = loadStore();
+      const newDoc = {
+        id: Date.now(),
+        project_id: cleanId,
+        filename: doc.filename || 'Untitled Document',
+        category: cat,
+        file_date: doc.fileDate || doc.file_date || nowStr.split(' ')[0],
+        amount: amountVal,
+        notes: doc.notes || '',
+        file_path: doc.filePath || doc.file_path || '',
+        created_at: nowStr
+      };
+      s.project_documents.push(newDoc);
+
+      const isPayment = (amountVal > 0 && !catLower.includes('tender') && !catLower.includes('drawing')) || catLower.includes('payment') || catLower.includes('invoice') || catLower.includes('advance');
+      if (isPayment) {
+        const totalPaid = s.project_documents
+          .filter(d => d.project_id.toUpperCase() === cleanId && d.amount > 0 && !d.category.toLowerCase().includes('tender') && !d.category.toLowerCase().includes('drawing'))
+          .reduce((sum, d) => sum + Number(d.amount), 0);
+
+        const contractAmt = Number(project.contract_amount) || 0;
+        let newStatus = 'Partial';
+        if (totalPaid >= contractAmt && contractAmt > 0) newStatus = 'Paid';
+        else if (totalPaid === 0) newStatus = 'Pending';
+
+        project.paid_amount = totalPaid;
+        project.payment_status = newStatus;
+      }
+      saveStore();
+      return this.getProjectDocuments(cleanId);
+    }
+
+    sqliteDb.prepare(`
       INSERT INTO project_documents (project_id, filename, category, file_date, amount, notes, file_path, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      cleanId,
-      doc.filename || 'Untitled Document',
-      doc.category || 'Tender / Contract',
-      doc.fileDate || nowStr.split(' ')[0],
-      amountVal,
-      doc.notes || '',
-      doc.filePath || '',
-      nowStr
-    );
+    `).run(cleanId, doc.filename || 'Untitled Document', cat, doc.fileDate || nowStr.split(' ')[0], amountVal, doc.notes || '', doc.filePath || '', nowStr);
 
-    // If it's a payment, advance, invoice or any non-tender document with an amount, automatically recalculate project financial status!
-    const catLower = (doc.category || '').toLowerCase();
-    const isPaymentDoc = (amountVal > 0 && !catLower.includes('tender') && !catLower.includes('drawing')) || catLower.includes('payment') || catLower.includes('invoice') || catLower.includes('advance');
-    if (isPaymentDoc) {
-      const allPayments = db.prepare(`
+    const isPayment = (amountVal > 0 && !catLower.includes('tender') && !catLower.includes('drawing')) || catLower.includes('payment') || catLower.includes('invoice') || catLower.includes('advance');
+    if (isPayment) {
+      const allPayments = sqliteDb.prepare(`
         SELECT SUM(amount) as totalPaid FROM project_documents 
-        WHERE UPPER(project_id) = ? 
-          AND amount > 0 
-          AND LOWER(category) NOT LIKE '%tender%' 
-          AND LOWER(category) NOT LIKE '%drawing%'
+        WHERE UPPER(project_id) = ? AND amount > 0 AND LOWER(category) NOT LIKE '%tender%' AND LOWER(category) NOT LIKE '%drawing%'
       `).get(cleanId);
 
       const totalPaid = allPayments ? (allPayments.totalPaid || 0) : 0;
       const contractAmt = Number(project.contract_amount) || 0;
-      let newPaymentStatus = 'Partial';
-      if (totalPaid >= contractAmt && contractAmt > 0) {
-        newPaymentStatus = 'Paid';
-      } else if (totalPaid === 0) {
-        newPaymentStatus = 'Pending';
-      }
+      let newStatus = totalPaid >= contractAmt && contractAmt > 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Pending');
 
-      db.prepare(`
-        UPDATE projects SET paid_amount = ?, payment_status = ? WHERE UPPER(id) = ?
-      `).run(totalPaid, newPaymentStatus, cleanId);
+      sqliteDb.prepare('UPDATE projects SET paid_amount = ?, payment_status = ? WHERE UPPER(id) = ?').run(totalPaid, newStatus, cleanId);
     }
 
     return this.getProjectDocuments(cleanId);
   },
 
   deleteProjectDocument(docId) {
-    const doc = db.prepare('SELECT * FROM project_documents WHERE id = ?').get(docId);
-    if (!doc) return { success: false };
+    if (useJson) {
+      const s = loadStore();
+      const idx = s.project_documents.findIndex(d => String(d.id) === String(docId));
+      if (idx < 0) return { success: false };
+      const doc = s.project_documents[idx];
+      s.project_documents.splice(idx, 1);
 
-    db.prepare('DELETE FROM project_documents WHERE id = ?').run(docId);
-
-    // Recalculate payments if deleted doc had an amount or was a payment
-    const deletedCat = (doc.category || '').toLowerCase();
-    const wasPayment = (Number(doc.amount) > 0 && !deletedCat.includes('tender') && !deletedCat.includes('drawing')) || deletedCat.includes('payment') || deletedCat.includes('invoice');
-    if (wasPayment) {
-      const allPayments = db.prepare(`
-        SELECT SUM(amount) as totalPaid FROM project_documents 
-        WHERE UPPER(project_id) = ? 
-          AND amount > 0 
-          AND LOWER(category) NOT LIKE '%tender%' 
-          AND LOWER(category) NOT LIKE '%drawing%'
-      `).get(doc.project_id);
-
-      const totalPaid = allPayments ? (allPayments.totalPaid || 0) : 0;
-      const project = this.getProject(doc.project_id);
-      const contractAmt = project ? Number(project.contract_amount) : 0;
-      let newPaymentStatus = totalPaid >= contractAmt && contractAmt > 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Pending');
-
-      db.prepare(`
-        UPDATE projects SET paid_amount = ?, payment_status = ? WHERE UPPER(id) = ?
-      `).run(totalPaid, newPaymentStatus, doc.project_id);
+      const proj = this.getProject(doc.project_id);
+      if (proj) {
+        const totalPaid = s.project_documents
+          .filter(d => d.project_id.toUpperCase() === proj.id.toUpperCase() && d.amount > 0 && !d.category.toLowerCase().includes('tender') && !d.category.toLowerCase().includes('drawing'))
+          .reduce((sum, d) => sum + Number(d.amount), 0);
+        const contractAmt = Number(proj.contract_amount) || 0;
+        proj.paid_amount = totalPaid;
+        proj.payment_status = totalPaid >= contractAmt && contractAmt > 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Pending');
+      }
+      saveStore();
+      return { success: true };
     }
 
+    const doc = sqliteDb.prepare('SELECT * FROM project_documents WHERE id = ?').get(docId);
+    if (!doc) return { success: false };
+    sqliteDb.prepare('DELETE FROM project_documents WHERE id = ?').run(docId);
+
+    const allPayments = sqliteDb.prepare(`
+      SELECT SUM(amount) as totalPaid FROM project_documents 
+      WHERE UPPER(project_id) = ? AND amount > 0 AND LOWER(category) NOT LIKE '%tender%' AND LOWER(category) NOT LIKE '%drawing%'
+    `).get(doc.project_id);
+
+    const totalPaid = allPayments ? (allPayments.totalPaid || 0) : 0;
+    const project = this.getProject(doc.project_id);
+    const contractAmt = project ? Number(project.contract_amount) : 0;
+    let newStatus = totalPaid >= contractAmt && contractAmt > 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Pending');
+
+    sqliteDb.prepare('UPDATE projects SET paid_amount = ?, payment_status = ? WHERE UPPER(id) = ?').run(totalPaid, newStatus, doc.project_id);
     return { success: true };
   }
 };
 
-module.exports = sqliteService;
+module.exports = dbService;

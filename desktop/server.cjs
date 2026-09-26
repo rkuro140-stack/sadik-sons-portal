@@ -297,13 +297,31 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-  const localIP = getLocalIP();
-  console.log('====================================================');
-  console.log('  ⚡ SADIK SONS | Tool Custody & Asset Network');
-  console.log('====================================================');
-  console.log(`  > Desktop App:   http://localhost:${PORT}`);
-  console.log(`  > Office Network: http://${localIP}:${PORT}`);
-  console.log(`  > Phone Action:   http://${localIP}:${PORT}/scan?id=SS-TL-001`);
-  console.log('====================================================');
-});
+function startServer(port = PORT, cb) {
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.log(`Port ${port} already active. Connecting to running server.`);
+      if (cb) cb(null, port);
+    } else {
+      console.error('Server error:', err);
+      if (cb) cb(err);
+    }
+  });
+
+  server.listen(port, '0.0.0.0', () => {
+    const localIP = getLocalIP();
+    console.log('====================================================');
+    console.log('  ⚡ SADIK SONS ENTERPRISES | Office Operations Suite');
+    console.log('====================================================');
+    console.log(`  > Desktop App:    http://localhost:${port}`);
+    console.log(`  > Office Network: http://${localIP}:${port}`);
+    console.log('====================================================');
+    if (cb) cb(null, port);
+  });
+}
+
+if (require.main === module) {
+  startServer(PORT);
+}
+
+module.exports = { server, startServer };

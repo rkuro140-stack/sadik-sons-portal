@@ -4,31 +4,13 @@
  */
 const { app, BrowserWindow, ipcMain, shell, dialog, Menu } = require('electron');
 const path = require('path');
-const http = require('http');
+const { startServer } = require('./server.cjs');
 
 let mainWindow = null;
 const PORT = process.env.PORT || 3000;
 
-// Start internal offline server in-process if not already running
-function ensureInternalServer() {
-  try {
-    // Test if port 3000 is open
-    const req = http.get(`http://localhost:${PORT}/api/stats`, res => {
-      // Server already running
-    });
-    req.on('error', () => {
-      // Start server internally
-      require('./server.cjs');
-    });
-  } catch (err) {
-    require('./server.cjs');
-  }
-}
-
 function createWindow() {
-  const iconPath = process.platform === 'darwin'
-    ? path.join(__dirname, 'assets', 'icon.icns')
-    : path.join(__dirname, 'assets', 'icon.png');
+  const iconPath = path.join(__dirname, 'assets', 'icon.png');
 
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -38,22 +20,28 @@ function createWindow() {
     title: 'Sadik Sons Enterprises — Office Management Suite',
     icon: iconPath,
     backgroundColor: '#F8FAFC',
-    show: false,
+    show: true, // Always show window immediately
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: true
+      webSecurity: false
     }
   });
 
-  // Load the office suite
-  mainWindow.loadURL(`http://localhost:${PORT}`);
+  const targetUrl = `http://localhost:${PORT}`;
 
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-    mainWindow.focus();
-  });
+  function loadWithRetry(retries = 15) {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.loadURL(targetUrl).catch(err => {
+      console.log(`Waiting for local server... (${retries} retries left)`);
+      if (retries > 0) {
+        setTimeout(() => loadWithRetry(retries - 1), 400);
+      }
+    });
+  }
+
+  loadWithRetry();
 
   // IPC: Open local hard drive folder in native OS Explorer / Finder
   ipcMain.handle('open-folder', async (event, folderPath) => {
@@ -85,11 +73,13 @@ function createWindow() {
 
   // IPC: Native Print
   ipcMain.handle('print-spine', async () => {
-    mainWindow.webContents.print({
-      silent: false,
-      printBackground: true,
-      deviceName: ''
-    });
+    if (mainWindow) {
+      mainWindow.webContents.print({
+        silent: false,
+        printBackground: true,
+        deviceName: ''
+      });
+    }
   });
 
   ipcMain.handle('get-app-version', () => app.getVersion());
@@ -177,8 +167,10 @@ function setupAppMenu() {
 }
 
 app.whenReady().then(() => {
-  ensureInternalServer();
-  createWindow();
+  startServer(PORT, (err) => {
+    if (err) console.error('Server startup error:', err);
+    createWindow();
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
