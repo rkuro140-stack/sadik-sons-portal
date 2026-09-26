@@ -16,13 +16,13 @@ const LOCAL_REGISTRY = [
     title: "السكن الفاخر",
     client: "Yomna abd alraheem saed hamad",
     site_address: "ابو هريدة",
-    start_date: "26 Sep 2026",
-    end_date: "31 Dec 2026",
+    start_date: "",
+    end_date: "",
     contract_amount: "65,000",
     currency: "EUR",
     paid_amount: "52,000",
     payment_status: "Partial",
-    remarks: "Initial contract signed and mobilization advance payment recorded.",
+    remarks: "",
     status: "ACTIVE",
     documents: [
       { filename: "Advance_Payment_SSE-26-001.pdf", category: "Payment / Invoice", file_date: "2026-09-26", amount: 52000, notes: "Initial advance payment / mobilization deposit" }
@@ -33,13 +33,13 @@ const LOCAL_REGISTRY = [
     title: "السكن الفاخر",
     client: "Yomna abd alraheem saed hamad",
     site_address: "ابو هريدة",
-    start_date: "26 Sep 2026",
-    end_date: "31 Dec 2026",
+    start_date: "",
+    end_date: "",
     contract_amount: "65,000",
     currency: "EUR",
     paid_amount: "52,000",
     payment_status: "Partial",
-    remarks: "Initial contract signed and mobilization advance payment recorded.",
+    remarks: "",
     status: "ACTIVE",
     documents: [
       { filename: "Advance_Payment_SSE-26-001.pdf", category: "Payment / Invoice", file_date: "2026-09-26", amount: 52000, notes: "Initial advance payment / mobilization deposit" }
@@ -50,13 +50,13 @@ const LOCAL_REGISTRY = [
     title: "السكن الفاخر",
     client: "Yomna abd alraheem saed hamad",
     site_address: "ابو هريدة",
-    start_date: "26 Sep 2026",
-    end_date: "31 Dec 2026",
+    start_date: "",
+    end_date: "",
     contract_amount: "65,000",
     currency: "EUR",
     paid_amount: "52,000",
     payment_status: "Partial",
-    remarks: "Initial contract signed and mobilization advance payment recorded.",
+    remarks: "",
     status: "ACTIVE",
     documents: [
       { filename: "Advance_Payment_SSE-26-001.pdf", category: "Payment / Invoice", file_date: "2026-09-26", amount: 52000, notes: "Initial advance payment / mobilization deposit" }
@@ -150,7 +150,17 @@ function renderProject(project) {
   displaySite.textContent = project.site_address;
   displayStart.textContent = project.start_date || "—";
   displayEnd.textContent = project.end_date || "—";
-  displayRemarks.textContent = project.remarks || "No specific field remarks recorded.";
+
+  // Only show Remarks section if a remark was explicitly entered
+  const remarksSection = document.querySelector(".remarks-section");
+  if (remarksSection) {
+    if (project.remarks && project.remarks.trim()) {
+      remarksSection.style.display = "block";
+      displayRemarks.textContent = project.remarks.trim();
+    } else {
+      remarksSection.style.display = "none";
+    }
+  }
 
   // Status Styling
   const status = (project.status || "ACTIVE").toUpperCase();
