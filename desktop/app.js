@@ -933,7 +933,7 @@ function renderSpineView(code) {
   if (!project) return;
 
   const volSelect = document.getElementById('spine-volume-select');
-  const volLabel = volSelect ? volSelect.value : 'Main Dossier';
+  const volLabel = volSelect ? volSelect.value : 'Main Binder';
 
   document.getElementById('spine-display-code').textContent = project.id;
   document.getElementById('spine-display-title').textContent = project.title;
@@ -950,8 +950,8 @@ function renderSpineView(code) {
     if (typeof QRCode !== 'undefined') {
       new QRCode(qrBox, {
         text: mobileScanUrl,
-        width: 76,
-        height: 76,
+        width: 88,
+        height: 88,
         colorDark: '#000000',
         colorLight: '#FFFFFF',
         correctLevel: typeof QRCode.CorrectLevel !== 'undefined' ? QRCode.CorrectLevel.M : 0

@@ -284,7 +284,7 @@
             <!-- Populated via JS -->
           </select>
           <select id="spine-volume-select" onchange="renderSpineView(CURRENT_SPINE_CODE)" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800">
-            <option value="Main Dossier">Main Binder (Full Dossier)</option>
+            <option value="Main Binder">Main Binder</option>
             <option value="Vol 1 of 2: Contracts & CAD">Vol 1 of 2: Contracts & CAD</option>
             <option value="Vol 2 of 2: Invoices & Finance">Vol 2 of 2: Invoices & Finance</option>
             <option value="Vol 1 of 3: Contracts & Permits">Vol 1 of 3: Contracts & Permits</option>
@@ -313,27 +313,26 @@
         <div id="printable-spine-container" class="bg-white border-2 border-dashed border-black rounded-sm p-4 flex items-center justify-between gap-5 transition-all" style="width: 190mm; height: 50mm; box-sizing: border-box;">
           
           <!-- Left: Monogram Badge & Project Identity -->
-          <div class="flex items-center gap-4 flex-1 min-w-0">
+          <div class="flex items-center gap-5 flex-1 min-w-0 pr-4">
             <!-- Pure Black Monogram Box for high laser toner contrast -->
-            <div class="w-12 h-12 bg-black text-white font-extrabold text-lg flex items-center justify-center rounded border border-black flex-shrink-0 tracking-tight">
+            <div class="w-14 h-14 bg-black text-white font-extrabold text-2xl flex items-center justify-center rounded border border-black flex-shrink-0 tracking-tight">
               SSE
             </div>
             
-            <div class="flex-1 min-w-0 pr-2">
-              <div class="flex items-center gap-2 mb-0.5">
-                <span class="text-[9px] font-extrabold tracking-widest text-black uppercase">SADIK SONS ENTERPRISES</span>
-                <span id="spine-display-volume" class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 bg-black text-white rounded">MAIN DOSSIER</span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-[11px] font-extrabold tracking-widest text-black uppercase">SADIK SONS ENTERPRISES</span>
+                <span id="spine-display-volume" class="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-black text-white rounded tracking-wide">MAIN BINDER</span>
               </div>
-              <h3 id="spine-display-code" class="text-3xl font-extrabold font-mono text-black tracking-wider leading-none">SS-26-007</h3>
-              <p id="spine-display-title" class="text-xs font-bold text-black truncate mt-1 leading-tight">السكن الفاخر</p>
-              <p id="spine-display-client" class="text-[11px] font-semibold text-neutral-800 truncate mt-0.5">Client: Yomna abd alraheem saed hamad</p>
+              <h3 id="spine-display-code" class="text-4xl font-extrabold font-mono text-black tracking-wider leading-none">SS-26-007</h3>
+              <p id="spine-display-title" class="text-base font-extrabold text-black truncate mt-1 leading-snug">السكن الفاخر</p>
+              <p id="spine-display-client" class="text-xs font-bold text-neutral-800 truncate mt-0.5">Client: Yomna abd alraheem saed hamad</p>
             </div>
           </div>
 
-          <!-- Right: Scannable 4G Cloud QR Code Box with Solid White Quiet Zone -->
-          <div class="flex flex-col items-center justify-center flex-shrink-0 pl-3 border-l-2 border-black">
-            <div id="spine-qrcode-box" class="w-20 h-20 flex items-center justify-center bg-white p-0.5 overflow-hidden"></div>
-            <span class="text-[8px] font-mono font-bold text-black uppercase tracking-wider mt-1">4G SCAN DOSSIER</span>
+          <!-- Right: Scannable QR Code Box (Clean, no extra text underneath) -->
+          <div class="flex items-center justify-center flex-shrink-0 pl-4 border-l-2 border-black">
+            <div id="spine-qrcode-box" class="w-24 h-24 flex items-center justify-center bg-white p-0.5 overflow-hidden"></div>
           </div>
 
         </div>
