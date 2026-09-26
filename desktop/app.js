@@ -184,6 +184,16 @@ function renderProjectsTable(projects) {
     else if (statusVal === 'ARCHIVE') statusBadge = "bg-slate-100 text-slate-600 border-slate-200";
     else if (statusVal === 'ON HOLD') statusBadge = "bg-amber-50 text-amber-700 border-amber-200";
 
+    const contractNum = Number(p.contract_amount || 0);
+    const paidNum = Number(p.paid_amount || 0);
+    let pct = 0;
+    if (contractNum > 0) {
+      pct = Math.min(100, Math.max(0, (paidNum / contractNum) * 100));
+    } else if (paidNum > 0) {
+      pct = 100;
+    }
+    const pctStr = pct.toFixed(1);
+
     return `
       <tr class="hover:bg-slate-50 transition border-b border-slate-100 cursor-pointer" onclick="openProjectDossier('${p.id}')">
         <td class="py-3 px-4 font-mono font-bold text-blue-700">${p.id}</td>
@@ -196,10 +206,24 @@ function renderProjectsTable(projects) {
           </span>
         </td>
         <td class="py-3 px-4 text-right font-mono font-bold text-slate-900">${amt} ${curr}</td>
-        <td class="py-3 px-4 text-center">
-          <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${badgeClass}">
-            ${p.payment_status || 'Pending'}
-          </span>
+        <td class="py-3 px-4">
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeClass}">
+                ${p.payment_status || 'Pending'}
+              </span>
+              <span class="font-mono text-[11px] font-bold ${pct >= 100 ? 'text-emerald-700' : (pct > 0 ? 'text-blue-700' : 'text-slate-400')}">
+                ${pctStr}%
+              </span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden border border-slate-200">
+              <div class="${pct >= 100 ? 'bg-emerald-600' : (pct > 0 ? 'bg-blue-600' : 'bg-slate-300')} h-1.5 rounded-full" style="width: ${pct}%;"></div>
+            </div>
+            <div class="text-[10px] font-mono text-slate-500 flex justify-between">
+              <span>Paid: <strong class="text-emerald-700">${Number(p.paid_amount || 0).toLocaleString()}</strong></span>
+              <span class="text-slate-400">${curr}</span>
+            </div>
+          </div>
         </td>
         <td class="py-3 px-4 text-right space-x-1" onclick="event.stopPropagation()">
           <button onclick="openProjectDossier('${p.id}')" class="px-2 py-1 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded text-[11px] font-bold text-blue-700 transition" title="Open Binder Dossier">
@@ -261,9 +285,52 @@ async function openProjectDossier(projectId) {
   const remainingVal = Math.max(0, contractVal - paidVal);
   const curr = project.currency || 'LYD';
 
+  let pct = 0;
+  if (contractVal > 0) {
+    pct = Math.min(100, Math.max(0, (paidVal / contractVal) * 100));
+  } else if (paidVal > 0) {
+    pct = 100;
+  }
+  const pctStr = pct.toFixed(1);
+  const remPctStr = (100 - pct).toFixed(1);
+
   document.getElementById('dossier-contract-val').textContent = `${contractVal.toLocaleString()} ${curr}`;
   document.getElementById('dossier-paid-val').textContent = `${paidVal.toLocaleString()} ${curr}`;
   document.getElementById('dossier-remaining-val').textContent = `${remainingVal.toLocaleString()} ${curr}`;
+
+  const dossierPctBadge = document.getElementById('dossier-paid-pct-badge');
+  const dossierProgressBar = document.getElementById('dossier-progress-bar');
+  const dossierCollectedText = document.getElementById('dossier-pct-collected-text');
+  const dossierRemainingText = document.getElementById('dossier-pct-remaining-text');
+
+  if (dossierPctBadge) {
+    dossierPctBadge.textContent = `${pctStr}%`;
+    if (pct >= 100) {
+      dossierPctBadge.className = "font-mono font-bold text-[11px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300";
+    } else if (pct > 0) {
+      dossierPctBadge.className = "font-mono font-bold text-[11px] px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200";
+    } else {
+      dossierPctBadge.className = "font-mono font-bold text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200";
+    }
+  }
+
+  if (dossierProgressBar) {
+    dossierProgressBar.style.width = `${pct}%`;
+    if (pct >= 100) {
+      dossierProgressBar.className = "bg-emerald-600 h-2 rounded-full transition-all duration-300";
+    } else if (pct > 0) {
+      dossierProgressBar.className = "bg-blue-600 h-2 rounded-full transition-all duration-300";
+    } else {
+      dossierProgressBar.className = "bg-slate-300 h-2 rounded-full transition-all duration-300";
+    }
+  }
+
+  if (dossierCollectedText) {
+    dossierCollectedText.textContent = `${pctStr}% Paid`;
+  }
+  if (dossierRemainingText) {
+    dossierRemainingText.textContent = `${remPctStr}% Due`;
+  }
 
   // Fetch Documents
   await loadProjectDocuments(projectId);
@@ -561,30 +628,83 @@ function confirmDeleteDocument(docId) {
 
 // --- PROJECT CREATION, EDITING & DELETION ---
 
-function autoCalculateNewProjectPayment() {
-  const contract = parseFloat(document.getElementById('form-proj-amount').value) || 0;
-  const paid = parseFloat(document.getElementById('form-proj-paid').value) || 0;
-  const statusSelect = document.getElementById('form-proj-payment');
-  if (paid >= contract && contract > 0) {
-    statusSelect.value = 'Paid';
+function updateFinancialBreakdownCard(prefix) {
+  const contractInput = document.getElementById(`${prefix}-amount`);
+  const paidInput = document.getElementById(`${prefix}-paid`);
+  const currSelect = document.getElementById(`${prefix}-currency`);
+  const statusSelect = document.getElementById(`${prefix}-payment`);
+
+  const contract = parseFloat(contractInput ? contractInput.value : 0) || 0;
+  const paid = parseFloat(paidInput ? paidInput.value : 0) || 0;
+  const curr = currSelect ? currSelect.value : 'LYD';
+  const remaining = Math.max(0, contract - paid);
+
+  let pct = 0;
+  if (contract > 0) {
+    pct = Math.min(100, Math.max(0, (paid / contract) * 100));
   } else if (paid > 0) {
-    statusSelect.value = 'Partial';
-  } else {
-    statusSelect.value = 'Pending';
+    pct = 100;
+  }
+  const pctFormatted = pct.toFixed(1);
+  const remPctFormatted = (100 - pct).toFixed(1);
+
+  // Auto-set status select
+  if (statusSelect) {
+    if (paid >= contract && contract > 0) {
+      statusSelect.value = 'Paid';
+    } else if (paid > 0) {
+      statusSelect.value = 'Partial';
+    } else {
+      statusSelect.value = 'Pending';
+    }
+  }
+
+  // Update Preview Elements
+  const percentBadge = document.getElementById(`${prefix === 'form-proj' ? 'new' : 'edit'}-proj-paid-percent`);
+  const progressBar = document.getElementById(`${prefix === 'form-proj' ? 'new' : 'edit'}-proj-progress-bar`);
+  const displayPaid = document.getElementById(`${prefix === 'form-proj' ? 'new' : 'edit'}-proj-display-paid`);
+  const displayRemaining = document.getElementById(`${prefix === 'form-proj' ? 'new' : 'edit'}-proj-display-remaining`);
+  const displayRemPct = document.getElementById(`${prefix === 'form-proj' ? 'new' : 'edit'}-proj-display-rem-pct`);
+
+  if (percentBadge) {
+    percentBadge.textContent = `${pctFormatted}% COLLECTED`;
+    if (pct >= 100) {
+      percentBadge.className = "font-mono text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded text-[11px] font-bold";
+    } else if (pct > 0) {
+      percentBadge.className = "font-mono text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-[11px] font-bold";
+    } else {
+      percentBadge.className = "font-mono text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[11px] font-bold";
+    }
+  }
+
+  if (progressBar) {
+    progressBar.style.width = `${pct}%`;
+    if (pct >= 100) {
+      progressBar.className = "bg-emerald-600 h-2 rounded-full transition-all duration-300";
+    } else if (pct > 0) {
+      progressBar.className = "bg-blue-600 h-2 rounded-full transition-all duration-300";
+    } else {
+      progressBar.className = "bg-slate-300 h-2 rounded-full transition-all duration-300";
+    }
+  }
+
+  if (displayPaid) {
+    displayPaid.textContent = `${paid.toLocaleString()} ${curr}`;
+  }
+  if (displayRemaining) {
+    displayRemaining.textContent = `${remaining.toLocaleString()} ${curr}`;
+  }
+  if (displayRemPct) {
+    displayRemPct.textContent = `(${remPctFormatted}% Due)`;
   }
 }
 
+function autoCalculateNewProjectPayment() {
+  updateFinancialBreakdownCard('form-proj');
+}
+
 function autoCalculateEditProjectPayment() {
-  const contract = parseFloat(document.getElementById('edit-proj-amount').value) || 0;
-  const paid = parseFloat(document.getElementById('edit-proj-paid').value) || 0;
-  const statusSelect = document.getElementById('edit-proj-payment');
-  if (paid >= contract && contract > 0) {
-    statusSelect.value = 'Paid';
-  } else if (paid > 0) {
-    statusSelect.value = 'Partial';
-  } else {
-    statusSelect.value = 'Pending';
-  }
+  updateFinancialBreakdownCard('edit-proj');
 }
 
 function openNewProjectModal() {
@@ -594,6 +714,7 @@ function openNewProjectModal() {
   document.getElementById('form-proj-amount').value = '';
   document.getElementById('form-proj-paid').value = '';
   document.getElementById('form-proj-payment').value = 'Pending';
+  updateFinancialBreakdownCard('form-proj');
   document.getElementById('modal-project').classList.remove('hidden');
   lucide.createIcons();
 }
@@ -658,6 +779,7 @@ function openEditProjectModal(projectId) {
   document.getElementById('edit-proj-end').value = project.end_date || '';
   document.getElementById('edit-proj-remarks').value = project.remarks || '';
 
+  updateFinancialBreakdownCard('edit-proj');
   document.getElementById('modal-edit-project').classList.remove('hidden');
   lucide.createIcons();
 }

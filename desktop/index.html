@@ -144,7 +144,7 @@
               <th class="py-3 px-4">Site Location</th>
               <th class="py-3 px-4 text-center w-24">Status</th>
               <th class="py-3 px-4 text-right">Tender / Contract</th>
-              <th class="py-3 px-4 text-center w-28">Payment</th>
+              <th class="py-3 px-4 text-left w-44">Payment & Ratio</th>
               <th class="py-3 px-4 text-right w-64">Actions</th>
             </tr>
           </thead>
@@ -199,25 +199,33 @@
       </div>
 
       <!-- Financial Status Banner (Auto-recalculated from files & synced to QR) -->
-      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm grid grid-cols-4 gap-4 text-xs">
-        <div class="border-r border-slate-100 pr-4">
-          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">CONTRACT / TENDER VALUE</span>
-          <span id="dossier-contract-val" class="text-base font-extrabold font-mono text-slate-900 mt-0.5 block">185,000 LYD</span>
-        </div>
-        <div class="border-r border-slate-100 pr-4">
-          <span class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">TOTAL ADVANCES & INVOICES PAID</span>
-          <span id="dossier-paid-val" class="text-base font-extrabold font-mono text-emerald-600 mt-0.5 block">140,000 LYD</span>
-        </div>
-        <div class="border-r border-slate-100 pr-4">
-          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">OUTSTANDING BALANCE</span>
-          <span id="dossier-remaining-val" class="text-base font-extrabold font-mono text-slate-900 mt-0.5 block">45,000 LYD</span>
-        </div>
-        <div>
-          <span class="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">4G QR SYNC STATUS</span>
-          <span class="text-xs font-bold text-slate-700 mt-1 flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>Live on Cloudflare Mobile</span>
-          </span>
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+        <div class="grid grid-cols-4 gap-4 text-xs">
+          <div class="border-r border-slate-100 pr-4">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">CONTRACT / TENDER VALUE</span>
+            <span id="dossier-contract-val" class="text-base font-extrabold font-mono text-slate-900 mt-0.5 block">0 LYD</span>
+          </div>
+          <div class="border-r border-slate-100 pr-4">
+            <span class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">TOTAL COLLECTED (PAID)</span>
+            <span id="dossier-paid-val" class="text-base font-extrabold font-mono text-emerald-600 mt-0.5 block">0 LYD</span>
+          </div>
+          <div class="border-r border-slate-100 pr-4">
+            <span class="text-[10px] font-bold text-amber-600 uppercase tracking-wider block">OUTSTANDING BALANCE</span>
+            <span id="dossier-remaining-val" class="text-base font-extrabold font-mono text-slate-900 mt-0.5 block">0 LYD</span>
+          </div>
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">PAYMENT RATIO</span>
+              <span id="dossier-paid-pct-badge" class="font-mono font-bold text-[11px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">0.0%</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-2 mt-2 overflow-hidden border border-slate-200">
+              <div id="dossier-progress-bar" class="bg-emerald-600 h-2 rounded-full transition-all duration-300" style="width: 0%;"></div>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1 font-mono">
+              <span id="dossier-pct-collected-text">0.0% Paid</span>
+              <span id="dossier-pct-remaining-text">100.0% Due</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -397,7 +405,7 @@
           </div>
           <div class="col-span-1">
             <label class="block font-bold text-slate-700 mb-1">CURRENCY</label>
-            <select id="form-proj-currency" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-bold focus:bg-white focus:border-blue-600 focus:outline-none">
+            <select id="form-proj-currency" onchange="autoCalculateNewProjectPayment()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-bold focus:bg-white focus:border-blue-600 focus:outline-none">
               <option value="LYD">LYD</option>
               <option value="EUR">EUR</option>
               <option value="USD">USD</option>
@@ -411,6 +419,24 @@
               <option value="Paid">Paid in Full</option>
               <option value="Retention Due">Retention Due</option>
             </select>
+          </div>
+        </div>
+
+        <!-- Live Financial Summary & Payment Ratio Card -->
+        <div class="bg-gradient-to-r from-slate-50 to-blue-50/30 border border-slate-200 rounded-xl p-3.5 space-y-2">
+          <div class="flex items-center justify-between text-xs font-bold">
+            <span class="text-slate-500 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+              <i data-lucide="calculator" class="w-3.5 h-3.5 text-blue-600"></i>
+              <span>Live Payment Calculation</span>
+            </span>
+            <span id="new-proj-paid-percent" class="font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[11px] font-bold">0.0% COLLECTED</span>
+          </div>
+          <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+            <div id="new-proj-progress-bar" class="bg-emerald-600 h-2 rounded-full transition-all duration-300" style="width: 0%;"></div>
+          </div>
+          <div class="flex items-center justify-between text-[11px] font-mono text-slate-600 pt-0.5">
+            <span>Collected: <strong id="new-proj-display-paid" class="text-emerald-700 font-bold">0 LYD</strong></span>
+            <span>Outstanding: <strong id="new-proj-display-remaining" class="text-slate-800 font-bold">0 LYD</strong> <span id="new-proj-display-rem-pct" class="text-slate-400 font-normal">(100.0% Due)</span></span>
           </div>
         </div>
 
@@ -496,7 +522,7 @@
           </div>
           <div class="col-span-1">
             <label class="block font-bold text-slate-700 mb-1">CURRENCY</label>
-            <select id="edit-proj-currency" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-bold focus:bg-white focus:border-blue-600 focus:outline-none">
+            <select id="edit-proj-currency" onchange="autoCalculateEditProjectPayment()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-bold focus:bg-white focus:border-blue-600 focus:outline-none">
               <option value="LYD">LYD</option>
               <option value="EUR">EUR</option>
               <option value="USD">USD</option>
@@ -510,6 +536,24 @@
               <option value="Paid">Paid in Full</option>
               <option value="Retention Due">Retention Due</option>
             </select>
+          </div>
+        </div>
+
+        <!-- Live Financial Summary & Payment Ratio Card -->
+        <div class="bg-gradient-to-r from-slate-50 to-blue-50/30 border border-slate-200 rounded-xl p-3.5 space-y-2">
+          <div class="flex items-center justify-between text-xs font-bold">
+            <span class="text-slate-500 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+              <i data-lucide="calculator" class="w-3.5 h-3.5 text-blue-600"></i>
+              <span>Live Payment Calculation</span>
+            </span>
+            <span id="edit-proj-paid-percent" class="font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[11px] font-bold">0.0% COLLECTED</span>
+          </div>
+          <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+            <div id="edit-proj-progress-bar" class="bg-emerald-600 h-2 rounded-full transition-all duration-300" style="width: 0%;"></div>
+          </div>
+          <div class="flex items-center justify-between text-[11px] font-mono text-slate-600 pt-0.5">
+            <span>Collected: <strong id="edit-proj-display-paid" class="text-emerald-700 font-bold">0 LYD</strong></span>
+            <span>Outstanding: <strong id="edit-proj-display-remaining" class="text-slate-800 font-bold">0 LYD</strong> <span id="edit-proj-display-rem-pct" class="text-slate-400 font-normal">(100.0% Due)</span></span>
           </div>
         </div>
 
