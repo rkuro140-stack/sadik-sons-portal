@@ -414,13 +414,36 @@ const dbService = {
       if (existingIdx >= 0) s.projects[existingIdx] = record;
       else s.projects.unshift(record);
       saveStore();
-      return record;
+
+      if (record.paid_amount > 0) {
+        this.addProjectDocument({
+          projectId: cleanId,
+          filename: `Advance_Payment_${cleanId}.pdf`,
+          category: 'Payment / Invoice',
+          fileDate: record.start_date || nowStr.split(' ')[0],
+          amount: record.paid_amount,
+          notes: 'Initial advance payment / mobilization deposit'
+        });
+      }
+
+      return this.getProject(cleanId);
     }
 
     sqliteDb.prepare(`
       INSERT INTO projects (id, title, client, site_address, start_date, end_date, contract_amount, currency, paid_amount, payment_status, remarks, status, folder_path, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(record.id, record.title, record.client, record.site_address, record.start_date, record.end_date, record.contract_amount, record.currency, record.paid_amount, record.payment_status, record.remarks, record.status, record.folder_path, record.created_at);
+
+    if (record.paid_amount > 0) {
+      this.addProjectDocument({
+        projectId: cleanId,
+        filename: `Advance_Payment_${cleanId}.pdf`,
+        category: 'Payment / Invoice',
+        fileDate: record.start_date || nowStr.split(' ')[0],
+        amount: record.paid_amount,
+        notes: 'Initial advance payment / mobilization deposit'
+      });
+    }
 
     return this.getProject(cleanId);
   },

@@ -561,10 +561,39 @@ function confirmDeleteDocument(docId) {
 
 // --- PROJECT CREATION, EDITING & DELETION ---
 
+function autoCalculateNewProjectPayment() {
+  const contract = parseFloat(document.getElementById('form-proj-amount').value) || 0;
+  const paid = parseFloat(document.getElementById('form-proj-paid').value) || 0;
+  const statusSelect = document.getElementById('form-proj-payment');
+  if (paid >= contract && contract > 0) {
+    statusSelect.value = 'Paid';
+  } else if (paid > 0) {
+    statusSelect.value = 'Partial';
+  } else {
+    statusSelect.value = 'Pending';
+  }
+}
+
+function autoCalculateEditProjectPayment() {
+  const contract = parseFloat(document.getElementById('edit-proj-amount').value) || 0;
+  const paid = parseFloat(document.getElementById('edit-proj-paid').value) || 0;
+  const statusSelect = document.getElementById('edit-proj-payment');
+  if (paid >= contract && contract > 0) {
+    statusSelect.value = 'Paid';
+  } else if (paid > 0) {
+    statusSelect.value = 'Partial';
+  } else {
+    statusSelect.value = 'Pending';
+  }
+}
+
 function openNewProjectModal() {
   const yearShort = new Date().getFullYear().toString().slice(-2);
   const nextNum = String(PROJECTS_CACHE.length + 1).padStart(3, '0');
   document.getElementById('form-proj-id').value = `SS-${yearShort}-${nextNum}`;
+  document.getElementById('form-proj-amount').value = '';
+  document.getElementById('form-proj-paid').value = '';
+  document.getElementById('form-proj-payment').value = 'Pending';
   document.getElementById('modal-project').classList.remove('hidden');
   lucide.createIcons();
 }
@@ -585,6 +614,7 @@ async function handleProjectSubmit(e) {
     start_date: document.getElementById('form-proj-start').value.trim(),
     end_date: document.getElementById('form-proj-end').value.trim(),
     contract_amount: parseFloat(document.getElementById('form-proj-amount').value) || 0,
+    paid_amount: parseFloat(document.getElementById('form-proj-paid').value) || 0,
     currency: document.getElementById('form-proj-currency').value,
     payment_status: document.getElementById('form-proj-payment').value,
     status: document.getElementById('form-proj-status').value,
@@ -621,6 +651,7 @@ function openEditProjectModal(projectId) {
   document.getElementById('edit-proj-client').value = project.client || '';
   document.getElementById('edit-proj-site').value = project.site_address || '';
   document.getElementById('edit-proj-amount').value = project.contract_amount || 0;
+  document.getElementById('edit-proj-paid').value = project.paid_amount || 0;
   document.getElementById('edit-proj-currency').value = project.currency || 'LYD';
   document.getElementById('edit-proj-payment').value = project.payment_status || 'Pending';
   document.getElementById('edit-proj-start').value = project.start_date || '';
@@ -651,6 +682,7 @@ async function handleEditProjectSubmit(e) {
     client: document.getElementById('edit-proj-client').value.trim(),
     site_address: document.getElementById('edit-proj-site').value.trim(),
     contract_amount: parseFloat(document.getElementById('edit-proj-amount').value) || 0,
+    paid_amount: parseFloat(document.getElementById('edit-proj-paid').value) || 0,
     currency: document.getElementById('edit-proj-currency').value,
     payment_status: document.getElementById('edit-proj-payment').value,
     start_date: document.getElementById('edit-proj-start').value.trim(),

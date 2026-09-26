@@ -386,21 +386,25 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-3 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">TENDER / CONTRACT VALUE</label>
-            <input type="number" id="form-proj-amount" placeholder="0" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-mono font-bold focus:bg-white focus:border-blue-600 focus:outline-none">
+        <div class="grid grid-cols-4 gap-3">
+          <div class="col-span-1">
+            <label class="block font-bold text-slate-700 mb-1">CONTRACT VALUE</label>
+            <input type="number" id="form-proj-amount" oninput="autoCalculateNewProjectPayment()" placeholder="0" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-mono font-bold focus:bg-white focus:border-blue-600 focus:outline-none">
           </div>
-          <div>
+          <div class="col-span-1">
+            <label class="block font-bold text-emerald-700 mb-1">PAID SO FAR (ADVANCE)</label>
+            <input type="number" id="form-proj-paid" oninput="autoCalculateNewProjectPayment()" placeholder="0" class="w-full bg-slate-50 border border-emerald-300 rounded-lg px-3 py-2 font-mono font-bold text-emerald-700 focus:bg-white focus:border-emerald-600 focus:outline-none">
+          </div>
+          <div class="col-span-1">
             <label class="block font-bold text-slate-700 mb-1">CURRENCY</label>
             <select id="form-proj-currency" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-bold focus:bg-white focus:border-blue-600 focus:outline-none">
               <option value="LYD">LYD</option>
-              <option value="USD">USD</option>
               <option value="EUR">EUR</option>
+              <option value="USD">USD</option>
             </select>
           </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">INITIAL PAYMENT STATUS</label>
+          <div class="col-span-1">
+            <label class="block font-bold text-slate-700 mb-1">PAYMENT STATUS</label>
             <select id="form-proj-payment" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-semibold focus:bg-white focus:border-blue-600 focus:outline-none">
               <option value="Pending">Pending Advance</option>
               <option value="Partial">Partial</option>
@@ -481,20 +485,24 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-3 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">CONTRACT / TENDER VALUE</label>
-            <input type="number" id="edit-proj-amount" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-mono font-bold focus:bg-white focus:border-blue-600 focus:outline-none">
+        <div class="grid grid-cols-4 gap-3">
+          <div class="col-span-1">
+            <label class="block font-bold text-slate-700 mb-1">CONTRACT VALUE</label>
+            <input type="number" id="edit-proj-amount" oninput="autoCalculateEditProjectPayment()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-mono font-bold focus:bg-white focus:border-blue-600 focus:outline-none">
           </div>
-          <div>
+          <div class="col-span-1">
+            <label class="block font-bold text-emerald-700 mb-1">PAID SO FAR (ADVANCE)</label>
+            <input type="number" id="edit-proj-paid" oninput="autoCalculateEditProjectPayment()" class="w-full bg-slate-50 border border-emerald-300 rounded-lg px-3 py-2 font-mono font-bold text-emerald-700 focus:bg-white focus:border-emerald-600 focus:outline-none">
+          </div>
+          <div class="col-span-1">
             <label class="block font-bold text-slate-700 mb-1">CURRENCY</label>
             <select id="edit-proj-currency" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-bold focus:bg-white focus:border-blue-600 focus:outline-none">
               <option value="LYD">LYD</option>
-              <option value="USD">USD</option>
               <option value="EUR">EUR</option>
+              <option value="USD">USD</option>
             </select>
           </div>
-          <div>
+          <div class="col-span-1">
             <label class="block font-bold text-slate-700 mb-1">PAYMENT STATUS</label>
             <select id="edit-proj-payment" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-semibold focus:bg-white focus:border-blue-600 focus:outline-none">
               <option value="Pending">Pending Advance</option>
