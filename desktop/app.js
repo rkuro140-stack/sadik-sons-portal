@@ -950,22 +950,22 @@ function renderSpineView(code) {
     if (typeof QRCode !== 'undefined') {
       new QRCode(qrBox, {
         text: mobileScanUrl,
-        width: 88,
-        height: 88,
-        colorDark: '#0F172A',
+        width: 76,
+        height: 76,
+        colorDark: '#000000',
         colorLight: '#FFFFFF',
         correctLevel: typeof QRCode.CorrectLevel !== 'undefined' ? QRCode.CorrectLevel.M : 0
       });
     } else {
       const img = document.createElement('img');
-      img.src = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(mobileScanUrl)}`;
+      img.src = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(mobileScanUrl)}`;
       img.alt = 'QR Code';
       img.className = 'w-full h-full object-contain';
       qrBox.appendChild(img);
     }
   } catch (err) {
     const img = document.createElement('img');
-    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(mobileScanUrl)}`;
+    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(mobileScanUrl)}`;
     img.alt = 'QR Code';
     img.className = 'w-full h-full object-contain';
     qrBox.appendChild(img);
@@ -976,9 +976,13 @@ function updateSpineWidth(widthMm) {
   const container = document.getElementById('printable-spine-container');
   if (!container) return;
   if (widthMm === '70') {
-    container.className = "bg-white border-2 border-dashed border-slate-800 rounded-lg p-8 shadow-xl flex items-center justify-between gap-8 w-full max-w-3xl";
+    container.style.width = '190mm';
+    container.style.height = '70mm';
+    container.className = "bg-white border-2 border-dashed border-black rounded-sm p-6 flex items-center justify-between gap-6 transition-all";
   } else {
-    container.className = "bg-white border-2 border-dashed border-slate-800 rounded-lg p-6 shadow-xl flex items-center justify-between gap-8 w-full max-w-2xl";
+    container.style.width = '190mm';
+    container.style.height = '50mm';
+    container.className = "bg-white border-2 border-dashed border-black rounded-sm p-4 flex items-center justify-between gap-5 transition-all";
   }
 }
 

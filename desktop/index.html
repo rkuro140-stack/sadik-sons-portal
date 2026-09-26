@@ -14,15 +14,29 @@
     body { font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; }
     .font-mono { font-family: 'JetBrains Mono', monospace; }
     @media print {
-      body * { visibility: hidden !important; }
-      #printable-spine-container, #printable-spine-container * { visibility: visible !important; }
+      @page {
+        size: A4 portrait;
+        margin: 15mm 15mm 15mm 15mm;
+      }
+      html, body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      body * {
+        visibility: hidden !important;
+      }
+      #printable-spine-container, #printable-spine-container * {
+        visibility: visible !important;
+      }
       #printable-spine-container {
-        position: fixed;
-        left: 0;
-        top: 0;
-        width: 100%;
-        margin: 0;
-        padding: 0;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        box-shadow: none !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
     }
   </style>
@@ -290,32 +304,41 @@
 
       <!-- Live Printable Spine Card (with scissor cut guides) -->
       <div class="bg-slate-100 p-8 rounded-2xl border border-slate-200 flex flex-col items-center gap-3">
-        <div class="flex items-center gap-2 text-[11px] font-bold text-slate-400">
+        <div class="flex items-center gap-2 text-[11px] font-bold text-slate-500">
           <i data-lucide="scissors" class="w-3.5 h-3.5"></i>
-          <span>Cut along dashed border to insert into clear binder spine sleeve</span>
+          <span>Cut along the black dashed border line to insert directly into the binder spine sleeve</span>
         </div>
-        <div id="printable-spine-container" class="bg-white border-2 border-dashed border-slate-800 rounded-lg p-6 shadow-xl flex items-center justify-between gap-8 w-full max-w-2xl">
-          <div class="flex items-center gap-5">
-            <div class="w-14 h-14 bg-blue-700 text-white font-extrabold text-xl flex items-center justify-center rounded-xl shadow-sm tracking-tight flex-shrink-0">
+        
+        <!-- Spine Wrapper (Exact Physical Lever-Arch Binder Dimensions) -->
+        <div id="printable-spine-container" class="bg-white border-2 border-dashed border-black rounded-sm p-4 flex items-center justify-between gap-5 transition-all" style="width: 190mm; height: 50mm; box-sizing: border-box;">
+          
+          <!-- Left: Monogram Badge & Project Identity -->
+          <div class="flex items-center gap-4 flex-1 min-w-0">
+            <!-- Pure Black Monogram Box for high laser toner contrast -->
+            <div class="w-12 h-12 bg-black text-white font-extrabold text-lg flex items-center justify-center rounded border border-black flex-shrink-0 tracking-tight">
               SSE
             </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="text-[10px] font-extrabold tracking-widest text-slate-400 uppercase block">SADIK SONS ENTERPRISES</span>
-                <span id="spine-display-volume" class="text-[9px] font-extrabold uppercase px-1.5 py-0.2 bg-blue-50 text-blue-700 border border-blue-200 rounded">MAIN DOSSIER</span>
+            
+            <div class="flex-1 min-w-0 pr-2">
+              <div class="flex items-center gap-2 mb-0.5">
+                <span class="text-[9px] font-extrabold tracking-widest text-black uppercase">SADIK SONS ENTERPRISES</span>
+                <span id="spine-display-volume" class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 bg-black text-white rounded">MAIN DOSSIER</span>
               </div>
-              <h3 id="spine-display-code" class="text-4xl font-extrabold font-mono text-blue-700 tracking-wider">SS-24-001</h3>
-              <p id="spine-display-title" class="text-sm font-bold text-slate-900 max-w-sm mt-1 leading-snug">Tripoli Commercial Center — HVAC & Piping</p>
-              <p id="spine-display-client" class="text-xs text-slate-500 mt-0.5">Client: Al-Naseem Contracting Group</p>
+              <h3 id="spine-display-code" class="text-3xl font-extrabold font-mono text-black tracking-wider leading-none">SS-26-007</h3>
+              <p id="spine-display-title" class="text-xs font-bold text-black truncate mt-1 leading-tight">السكن الفاخر</p>
+              <p id="spine-display-client" class="text-[11px] font-semibold text-neutral-800 truncate mt-0.5">Client: Yomna abd alraheem saed hamad</p>
             </div>
           </div>
 
-          <div class="flex flex-col items-center justify-center flex-shrink-0 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-            <div id="spine-qrcode-box" class="w-24 h-24 flex items-center justify-center bg-white p-1 rounded-lg border border-slate-200 overflow-hidden"></div>
+          <!-- Right: Scannable 4G Cloud QR Code Box with Solid White Quiet Zone -->
+          <div class="flex flex-col items-center justify-center flex-shrink-0 pl-3 border-l-2 border-black">
+            <div id="spine-qrcode-box" class="w-20 h-20 flex items-center justify-center bg-white p-0.5 overflow-hidden"></div>
+            <span class="text-[8px] font-mono font-bold text-black uppercase tracking-wider mt-1">4G SCAN DOSSIER</span>
           </div>
+
         </div>
       </div>
-      <p class="text-center text-xs text-slate-400">Pre-measured dimensions for standard lever-arch office binders. Print directly to standard A4 paper.</p>
+      <p class="text-center text-xs text-slate-500 font-medium">Standard A4 page format. Pre-calibrated for lever-arch binder spine sleeves (50 mm standard / 70 mm wide).</p>
     </section>
 
     <!-- VIEW 4: TOOL CUSTODY -->
