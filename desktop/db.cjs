@@ -449,7 +449,20 @@ const dbService = {
         remarks = COALESCE(?, remarks),
         status = COALESCE(?, status)
       WHERE UPPER(id) = ?
-    `).run(project.title, project.client, project.siteAddress || project.site_address, project.startDate || project.start_date, project.endDate || project.end_date, project.contractAmount || project.contract_amount, project.currency, project.paidAmount || project.paid_amount, project.paymentStatus || project.payment_status, project.remarks, project.status, cleanId);
+    `).run(
+      project.title ?? null,
+      project.client ?? null,
+      (project.siteAddress !== undefined ? project.siteAddress : project.site_address) ?? null,
+      (project.startDate !== undefined ? project.startDate : project.start_date) ?? null,
+      (project.endDate !== undefined ? project.endDate : project.end_date) ?? null,
+      (project.contractAmount !== undefined ? project.contractAmount : project.contract_amount) ?? null,
+      project.currency ?? null,
+      (project.paidAmount !== undefined ? project.paidAmount : project.paid_amount) ?? null,
+      (project.paymentStatus !== undefined ? project.paymentStatus : project.payment_status) ?? null,
+      project.remarks ?? null,
+      project.status ?? null,
+      cleanId
+    );
     return this.getProject(cleanId);
   },
 
@@ -576,6 +589,198 @@ const dbService = {
     let newStatus = totalPaid >= contractAmt && contractAmt > 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Pending');
 
     sqliteDb.prepare('UPDATE projects SET paid_amount = ?, payment_status = ? WHERE UPPER(id) = ?').run(totalPaid, newStatus, doc.project_id);
+    return { success: true };
+  },
+
+  updateDocument(docId, updates) {
+    if (useJson) {
+      const s = loadStore();
+      const doc = s.project_documents.find(d => String(d.id) === String(docId));
+      if (!doc) return null;
+      if (updates.filename !== undefined) doc.filename = updates.filename;
+      if (updates.category !== undefined) doc.category = updates.category;
+      if (updates.fileDate !== undefined || updates.file_date !== undefined) doc.file_date = updates.fileDate || updates.file_date;
+      if (updates.amount !== undefined) doc.amount = Number(updates.amount) || 0;
+      if (updates.notes !== undefined) doc.notes = updates.notes;
+      if (updates.filePath !== undefined || updates.file_path !== undefined) doc.file_path = updates.filePath || updates.file_path;
+
+      const proj = this.getProject(doc.project_id);
+      if (proj) {
+        const totalPaid = s.project_documents
+          .filter(d => d.project_id.toUpperCase() === proj.id.toUpperCase() && d.amount > 0 && !d.category.toLowerCase().includes('tender') && !d.category.toLowerCase().includes('drawing'))
+          .reduce((sum, d) => sum + Number(d.amount), 0);
+        const contractAmt = Number(proj.contract_amount) || 0;
+        proj.paid_amount = totalPaid;
+        proj.payment_status = totalPaid >= contractAmt && contractAmt > 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Pending');
+      }
+      saveStore();
+      return doc;
+    }
+
+    const doc = sqliteDb.prepare('SELECT * FROM project_documents WHERE id = ?').get(docId);
+    if (!doc) return null;
+
+    const newFilename = updates.filename !== undefined ? updates.filename : doc.filename;
+    const newCategory = updates.category !== undefined ? updates.category : doc.category;
+    const newDate = updates.fileDate !== undefined ? updates.fileDate : (updates.file_date !== undefined ? updates.file_date : doc.file_date);
+    const newAmount = updates.amount !== undefined ? (Number(updates.amount) || 0) : doc.amount;
+    const newNotes = updates.notes !== undefined ? updates.notes : doc.notes;
+    const newFilePath = updates.filePath !== undefined ? updates.filePath : (updates.file_path !== undefined ? updates.file_path : doc.file_path);
+
+    sqliteDb.prepare(`
+      UPDATE project_documents SET
+        filename = ?, category = ?, file_date = ?, amount = ?, notes = ?, file_path = ?
+      WHERE id = ?
+    `).run(newFilename, newCategory, newDate, newAmount, newNotes, newFilePath, docId);
+
+    const allPayments = sqliteDb.prepare(`
+      SELECT SUM(amount) as totalPaid FROM project_documents 
+      WHERE UPPER(project_id) = ? AND amount > 0 AND LOWER(category) NOT LIKE '%tender%' AND LOWER(category) NOT LIKE '%drawing%'
+    `).get(doc.project_id);
+
+    const totalPaid = allPayments ? (allPayments.totalPaid || 0) : 0;
+    const project = this.getProject(doc.project_id);
+    const contractAmt = project ? Number(project.contract_amount) : 0;
+    let newStatus = totalPaid >= contractAmt && contractAmt > 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Pending');
+
+    sqliteDb.prepare('UPDATE projects SET paid_amount = ?, payment_status = ? WHERE UPPER(id) = ?').run(totalPaid, newStatus, doc.project_id);
+
+    return sqliteDb.prepare('SELECT * FROM project_documents WHERE id = ?').get(docId);
+  },
+
+  openProjectFolder(id) {
+    try {
+      let targetPath = '';
+      if (id === 'ROOT' || !id) {
+        targetPath = getArchiveBasePath();
+      } else {
+        const project = this.getProject(id);
+        if (project) {
+          targetPath = project.folder_path || ensureProjectFolders(project);
+        } else {
+          targetPath = getArchiveBasePath();
+        }
+      }
+
+      if (!fs.existsSync(targetPath)) {
+        fs.mkdirSync(targetPath, { recursive: true });
+      }
+
+      const platform = process.platform;
+      let cmd = '';
+      if (platform === 'darwin') {
+        cmd = `open "${targetPath}"`;
+      } else if (platform === 'win32') {
+        cmd = `explorer.exe "${targetPath}"`;
+      } else {
+        cmd = `xdg-open "${targetPath}"`;
+      }
+
+      const { exec } = require('child_process');
+      exec(cmd, (err) => {
+        if (err) console.warn('openFolder notice:', err.message);
+      });
+
+      return { success: true, path: targetPath };
+    } catch (err) {
+      console.error('openProjectFolder error:', err);
+      return { success: false, error: err.message };
+    }
+  },
+
+  openFile(filePath) {
+    try {
+      if (!filePath || !fs.existsSync(filePath)) {
+        return { success: false, error: 'File does not exist on local disk' };
+      }
+      const platform = process.platform;
+      let cmd = '';
+      if (platform === 'darwin') {
+        cmd = `open "${filePath}"`;
+      } else if (platform === 'win32') {
+        cmd = `start "" "${filePath}"`;
+      } else {
+        cmd = `xdg-open "${filePath}"`;
+      }
+      const { exec } = require('child_process');
+      exec(cmd, (err) => {
+        if (err) console.warn('openFile notice:', err.message);
+      });
+      return { success: true, path: filePath };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  },
+
+  attachFile({ projectId, sourcePath, category, filename, fileDate, amount, notes }) {
+    const cleanId = String(projectId || '').trim().toUpperCase();
+    const project = this.getProject(cleanId);
+    if (!project) throw new Error(`Project ${cleanId} not found`);
+
+    const folderPath = project.folder_path || ensureProjectFolders(project);
+    let destSubfolder = '01_Contracts_and_Agreements';
+    const catLower = (category || '').toLowerCase();
+    if (catLower.includes('drawing') || catLower.includes('cad')) {
+      destSubfolder = '02_Engineering_Drawings_and_CAD';
+    } else if (catLower.includes('payment') || catLower.includes('invoice') || catLower.includes('advance')) {
+      destSubfolder = '03_Invoices_and_Financial_Docs';
+    } else if (catLower.includes('spec') || catLower.includes('parts') || catLower.includes('material')) {
+      destSubfolder = '04_Technical_Specs_and_Spare_Parts';
+    } else if (catLower.includes('report') || catLower.includes('handover') || catLower.includes('site')) {
+      destSubfolder = '05_Site_Reports_and_Handover';
+    }
+
+    const targetDir = path.join(folderPath, destSubfolder);
+    fs.mkdirSync(targetDir, { recursive: true });
+
+    let finalFilename = filename || (sourcePath ? path.basename(sourcePath) : 'Document.pdf');
+    let targetFilePath = '';
+
+    if (sourcePath && fs.existsSync(sourcePath)) {
+      targetFilePath = path.join(targetDir, finalFilename);
+      if (fs.existsSync(targetFilePath)) {
+        const ext = path.extname(finalFilename);
+        const base = path.basename(finalFilename, ext);
+        finalFilename = `${base}_${Date.now()}${ext}`;
+        targetFilePath = path.join(targetDir, finalFilename);
+      }
+      fs.copyFileSync(sourcePath, targetFilePath);
+    }
+
+    return this.addProjectDocument({
+      projectId: cleanId,
+      filename: finalFilename,
+      category: category || 'Tender / Contract',
+      fileDate: fileDate,
+      amount: amount || 0,
+      notes: notes || '',
+      filePath: targetFilePath
+    });
+  },
+
+  clearDemoData() {
+    if (useJson) {
+      const s = loadStore();
+      s.projects = [];
+      s.project_documents = [];
+      saveStore();
+      return { success: true };
+    }
+    sqliteDb.prepare('DELETE FROM project_documents').run();
+    sqliteDb.prepare('DELETE FROM projects').run();
+    return { success: true };
+  },
+
+  resetDemoData() {
+    if (useJson) {
+      store = JSON.parse(JSON.stringify(DEFAULT_STORE));
+      saveStore();
+      return { success: true };
+    }
+    sqliteDb.prepare('DELETE FROM project_documents').run();
+    sqliteDb.prepare('DELETE FROM projects').run();
+    DEFAULT_STORE.projects.forEach(p => this.addProject(p));
+    DEFAULT_STORE.project_documents.forEach(d => this.addProjectDocument(d));
     return { success: true };
   }
 };

@@ -56,6 +56,19 @@ function createWindow() {
     }
   });
 
+  // IPC: Open local file directly with default OS application
+  ipcMain.handle('open-file', async (event, filePath) => {
+    try {
+      if (filePath) {
+        await shell.openPath(filePath);
+        return { success: true };
+      }
+      return { success: false, error: 'File path not specified' };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // IPC: Native File Selector
   ipcMain.handle('select-file', async (event, options = {}) => {
     const res = await dialog.showOpenDialog(mainWindow, {

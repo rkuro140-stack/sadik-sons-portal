@@ -174,6 +174,7 @@ const server = http.createServer(async (req, res) => {
       if (reqPath.startsWith('/api/projects/') && !reqPath.includes('/documents') && req.method === 'DELETE') {
         const id = decodeURIComponent(reqPath.replace('/api/projects/', ''));
         const result = db.deleteProject(id);
+        cloudSync.deleteProject(id).catch(() => {});
         return sendJson(res, 200, result);
       }
 
@@ -194,10 +195,66 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 201, docs);
       }
 
+      // PUT /api/documents/:id
+      if (reqPath.startsWith('/api/documents/') && req.method === 'PUT') {
+        const docId = decodeURIComponent(reqPath.replace('/api/documents/', ''));
+        const body = await parseJsonBody(req);
+        const updated = db.updateDocument(docId, body);
+        if (!updated) return sendJson(res, 404, { error: 'Document not found' });
+        cloudSync.syncDocument(updated).catch(() => {});
+        const updatedProj = db.getProject(updated.project_id);
+        if (updatedProj) cloudSync.syncProject(updatedProj).catch(() => {});
+        return sendJson(res, 200, updated);
+      }
+
       // DELETE /api/documents/:id
       if (reqPath.startsWith('/api/documents/') && req.method === 'DELETE') {
         const docId = decodeURIComponent(reqPath.replace('/api/documents/', ''));
+        // Find doc first to know project id for cloud sync
+        const allProjects = db.getProjects();
+        let targetProjId = null;
+        for (const p of allProjects) {
+          const docs = db.getProjectDocuments(p.id);
+          if (docs.some(d => String(d.id) === String(docId))) {
+            targetProjId = p.id;
+            break;
+          }
+        }
         const result = db.deleteProjectDocument(docId);
+        cloudSync.deleteDocument(docId, targetProjId).catch(() => {});
+        if (targetProjId) {
+          const updatedProj = db.getProject(targetProjId);
+          if (updatedProj) cloudSync.syncProject(updatedProj).catch(() => {});
+        }
+        return sendJson(res, 200, result);
+      }
+
+      // POST /api/documents/attach
+      if (reqPath === '/api/documents/attach' && req.method === 'POST') {
+        const body = await parseJsonBody(req);
+        const docs = db.attachFile(body);
+        cloudSync.syncDocument({ ...body, filename: body.filename }).catch(() => {});
+        const updatedProj = db.getProject(body.projectId);
+        if (updatedProj) cloudSync.syncProject(updatedProj).catch(() => {});
+        return sendJson(res, 201, docs);
+      }
+
+      // POST /api/documents/open-file
+      if (reqPath === '/api/documents/open-file' && req.method === 'POST') {
+        const body = await parseJsonBody(req);
+        const result = db.openFile(body.filePath);
+        return sendJson(res, 200, result);
+      }
+
+      // POST /api/system/clear-demo
+      if (reqPath === '/api/system/clear-demo' && req.method === 'POST') {
+        const result = db.clearDemoData();
+        return sendJson(res, 200, result);
+      }
+
+      // POST /api/system/reset-demo
+      if (reqPath === '/api/system/reset-demo' && req.method === 'POST') {
+        const result = db.resetDemoData();
         return sendJson(res, 200, result);
       }
 
@@ -221,13 +278,19 @@ const server = http.createServer(async (req, res) => {
 
       // GET /api/backup
       if (reqPath === '/api/backup' && req.method === 'GET') {
+        const jsonFile = path.join(DIR, 'sadik_sons_data.json');
         const dbFile = path.join(DIR, 'sadik_sons.db');
-        res.writeHead(200, {
-          'Content-Type': 'application/x-sqlite3',
-          'Content-Disposition': 'attachment; filename="sadik_sons_backup.db"'
-        });
-        fs.createReadStream(dbFile).pipe(res);
-        return;
+        const fileToSend = fs.existsSync(dbFile) ? dbFile : jsonFile;
+        if (fs.existsSync(fileToSend)) {
+          const filename = path.basename(fileToSend);
+          res.writeHead(200, {
+            'Content-Type': 'application/octet-stream',
+            'Content-Disposition': `attachment; filename="${filename}"`
+          });
+          fs.createReadStream(fileToSend).pipe(res);
+          return;
+        }
+        return sendJson(res, 404, { error: 'No database file found to backup' });
       }
 
       return sendJson(res, 404, { error: 'API endpoint not found' });

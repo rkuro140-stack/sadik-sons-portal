@@ -12,6 +12,10 @@ contextBridge.exposeInMainWorld('desktopAPI', {
     return ipcRenderer.invoke('open-folder', path);
   },
 
+  openFile(path) {
+    return ipcRenderer.invoke('open-file', path);
+  },
+
   selectFile(options) {
     return ipcRenderer.invoke('select-file', options);
   },

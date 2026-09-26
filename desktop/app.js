@@ -1,17 +1,28 @@
 /**
- * Sadik Sons Enterprise — Desktop Control Engine
- * Connects to local SQLite / Express server on port 3000
+ * Sadik Sons Enterprises — Desktop Control Engine
+ * Connects to local server and desktop native APIs
  */
 
 let PROJECTS_CACHE = [];
 let TOOLS_CACHE = [];
 let CURRENT_DOSSIER_ID = null;
+let CURRENT_DOSSIER_DOCS = [];
 let CURRENT_SPINE_CODE = null;
+let CONFIRM_CALLBACK = null;
 
 // Initialize on Load
 document.addEventListener('DOMContentLoaded', () => {
   loadProjects();
   loadTools();
+
+  // Close menus on outside click
+  document.addEventListener('click', (e) => {
+    const container = document.getElementById('db-dropdown-container');
+    const menu = document.getElementById('data-dropdown-menu');
+    if (container && menu && !container.contains(e.target)) {
+      menu.classList.add('hidden');
+    }
+  });
 });
 
 // View Navigation
@@ -40,6 +51,76 @@ function switchView(viewName) {
   lucide.createIcons();
 }
 
+// --- DATA OPTIONS MENU ---
+
+function toggleDataMenu() {
+  const menu = document.getElementById('data-dropdown-menu');
+  if (menu) menu.classList.toggle('hidden');
+}
+
+function closeDataMenu() {
+  const menu = document.getElementById('data-dropdown-menu');
+  if (menu) menu.classList.add('hidden');
+}
+
+function downloadBackup() {
+  window.open('/api/backup', '_blank');
+}
+
+function promptClearDemoData() {
+  showConfirmModal(
+    'Clear All Demo Projects?',
+    'This will remove all sample projects and documents from your database so you can start completely fresh with your real company contracts. This action cannot be undone.',
+    async () => {
+      try {
+        const res = await fetch('/api/system/clear-demo', { method: 'POST' });
+        if (!res.ok) throw new Error('Failed to clear database');
+        await loadProjects();
+        switchView('projects');
+      } catch (err) {
+        alert(`Error clearing data: ${err.message}`);
+      }
+    }
+  );
+}
+
+function promptResetDemoData() {
+  showConfirmModal(
+    'Restore Sample Projects?',
+    'This will reload the default Sadik Sons Enterprises sample projects for demonstration purposes.',
+    async () => {
+      try {
+        const res = await fetch('/api/system/reset-demo', { method: 'POST' });
+        if (!res.ok) throw new Error('Failed to reset demo data');
+        await loadProjects();
+        switchView('projects');
+      } catch (err) {
+        alert(`Error resetting demo data: ${err.message}`);
+      }
+    }
+  );
+}
+
+// --- CONFIRMATION MODAL HELPER ---
+
+function showConfirmModal(title, message, onConfirm) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-message').textContent = message;
+  CONFIRM_CALLBACK = onConfirm;
+  const actionBtn = document.getElementById('confirm-btn-action');
+  actionBtn.onclick = async () => {
+    closeConfirmModal();
+    if (CONFIRM_CALLBACK) await CONFIRM_CALLBACK();
+  };
+  document.getElementById('modal-confirm').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeConfirmModal() {
+  document.getElementById('modal-confirm').classList.add('hidden');
+  CONFIRM_CALLBACK = null;
+}
+
 // --- PROJECTS REGISTER & TABLE ---
 
 async function loadProjects() {
@@ -61,7 +142,7 @@ function renderProjectsTable(projects) {
   if (projects.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" class="py-12 text-center text-slate-400">
+        <td colspan="8" class="py-12 text-center text-slate-400">
           No projects found in local archive database. Click "New Project & Binder" to register one.
         </td>
       </tr>
@@ -79,27 +160,44 @@ function renderProjectsTable(projects) {
     if (isPaid) badgeClass = "bg-emerald-50 text-emerald-700 border-emerald-200";
     else if (isPartial) badgeClass = "bg-amber-50 text-amber-700 border-amber-200";
 
+    const statusVal = p.status || 'ACTIVE';
+    let statusBadge = "bg-blue-50 text-blue-700 border-blue-200";
+    if (statusVal === 'COMPLETED') statusBadge = "bg-emerald-50 text-emerald-700 border-emerald-200";
+    else if (statusVal === 'ARCHIVE') statusBadge = "bg-slate-100 text-slate-600 border-slate-200";
+    else if (statusVal === 'ON HOLD') statusBadge = "bg-amber-50 text-amber-700 border-amber-200";
+
     return `
       <tr class="hover:bg-slate-50 transition border-b border-slate-100 cursor-pointer" onclick="openProjectDossier('${p.id}')">
         <td class="py-3 px-4 font-mono font-bold text-blue-700">${p.id}</td>
         <td class="py-3 px-4 font-bold text-slate-900">${p.title}</td>
         <td class="py-3 px-4 text-slate-600 font-medium">${p.client}</td>
         <td class="py-3 px-4 text-slate-500">${p.site_address || '—'}</td>
+        <td class="py-3 px-4 text-center">
+          <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${statusBadge}">
+            ${statusVal}
+          </span>
+        </td>
         <td class="py-3 px-4 text-right font-mono font-bold text-slate-900">${amt} ${curr}</td>
         <td class="py-3 px-4 text-center">
           <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${badgeClass}">
             ${p.payment_status || 'Pending'}
           </span>
         </td>
-        <td class="py-3 px-4 text-right space-x-1.5" onclick="event.stopPropagation()">
-          <button onclick="openProjectDossier('${p.id}')" class="px-2.5 py-1 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded text-[11px] font-bold text-blue-700 transition">
+        <td class="py-3 px-4 text-right space-x-1" onclick="event.stopPropagation()">
+          <button onclick="openProjectDossier('${p.id}')" class="px-2 py-1 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded text-[11px] font-bold text-blue-700 transition" title="Open Binder Dossier">
             Dossier
           </button>
-          <button onclick="openSpineForProject('${p.id}')" class="px-2.5 py-1 bg-white border border-slate-300 hover:border-blue-600 rounded text-[11px] font-bold text-slate-700 transition">
+          <button onclick="openSpineForProject('${p.id}')" class="px-2 py-1 bg-white border border-slate-300 hover:border-blue-600 rounded text-[11px] font-bold text-slate-700 transition" title="Print Spine Label">
             Spine
           </button>
-          <button onclick="openProjectFolder('${p.id}')" class="px-2.5 py-1 bg-white border border-slate-300 hover:border-slate-600 rounded text-[11px] font-bold text-slate-700 transition">
+          <button onclick="openEditProjectModal('${p.id}')" class="px-2 py-1 bg-white border border-slate-300 hover:border-blue-600 hover:text-blue-700 rounded text-[11px] font-bold text-slate-700 transition" title="Edit Project Details">
+            Edit
+          </button>
+          <button onclick="openProjectFolder('${p.id}')" class="px-2 py-1 bg-white border border-slate-300 hover:border-slate-600 rounded text-[11px] font-bold text-slate-700 transition" title="Open PC Folder">
             Folder
+          </button>
+          <button onclick="confirmDeleteProject('${p.id}')" class="px-2 py-1 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded text-[11px] font-bold text-rose-700 transition" title="Delete Project">
+            Delete
           </button>
         </td>
       </tr>
@@ -159,8 +257,8 @@ async function loadProjectDocuments(projectId) {
   try {
     const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/documents`);
     if (!res.ok) throw new Error('Failed to load documents');
-    const docs = await res.json();
-    renderDossierDocs(docs);
+    CURRENT_DOSSIER_DOCS = await res.json();
+    renderDossierDocs(CURRENT_DOSSIER_DOCS);
   } catch (err) {
     console.error('Error loading documents:', err);
   }
@@ -186,21 +284,85 @@ function renderDossierDocs(docs) {
 
   tbody.innerHTML = docs.map(d => {
     const amountDisplay = d.amount > 0 ? `${Number(d.amount).toLocaleString()} LYD` : '—';
+    const hasPath = d.file_path && d.file_path.trim().length > 0;
+    
     return `
       <tr class="hover:bg-slate-50 transition border-b border-slate-100">
-        <td class="py-3 px-4 font-semibold text-slate-900 font-mono text-[11px]">${d.filename}</td>
+        <td class="py-3 px-4 font-semibold text-slate-900 font-mono text-[11px]">
+          <div class="flex items-center gap-1.5">
+            <i data-lucide="${hasPath ? 'file-check-2' : 'file-text'}" class="w-3.5 h-3.5 ${hasPath ? 'text-blue-600' : 'text-slate-400'}"></i>
+            <span>${d.filename}</span>
+          </div>
+        </td>
         <td class="py-3 px-4">
           <span class="px-2 py-0.5 rounded bg-slate-100 font-bold text-[10px] text-slate-700">${d.category}</span>
         </td>
         <td class="py-3 px-4 text-slate-500 font-mono text-[11px]">${d.file_date || '—'}</td>
         <td class="py-3 px-4 text-right font-mono font-bold text-slate-800">${amountDisplay}</td>
         <td class="py-3 px-4 text-slate-600 text-xs">${d.notes || '—'}</td>
-        <td class="py-3 px-4 text-right">
-          <button onclick="deleteDocument(${d.id})" class="text-slate-400 hover:text-rose-600 text-xs font-bold transition">Delete</button>
+        <td class="py-3 px-4 text-right space-x-1">
+          ${hasPath ? `
+            <button onclick="openAttachedFile('${encodeURIComponent(d.file_path)}')" class="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded text-[10px] transition" title="Open File Directly">
+              Open
+            </button>
+          ` : ''}
+          <button onclick="openEditDocumentModal(${d.id})" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded text-[10px] transition">
+            Edit
+          </button>
+          <button onclick="confirmDeleteDocument(${d.id})" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded text-[10px] transition">
+            Delete
+          </button>
         </td>
       </tr>
     `;
   }).join('');
+
+  lucide.createIcons();
+}
+
+async function openAttachedFile(encodedPath) {
+  const filePath = decodeURIComponent(encodedPath);
+  try {
+    if (window.desktopAPI && window.desktopAPI.openFile) {
+      await window.desktopAPI.openFile(filePath);
+      return;
+    }
+    const res = await fetch('/api/documents/open-file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filePath })
+    });
+    const data = await res.json();
+    if (!res.ok) alert(data.error || 'Could not launch file');
+  } catch (err) {
+    alert(`Could not open file: ${err.message}`);
+  }
+}
+
+// --- FILE BROWSER INTEGRATION ---
+
+async function browseAndSelectFile(mode) {
+  try {
+    if (window.desktopAPI && window.desktopAPI.selectFile) {
+      const res = await window.desktopAPI.selectFile();
+      if (!res.canceled && res.filePaths && res.filePaths.length > 0) {
+        const fullPath = res.filePaths[0];
+        const filename = fullPath.split(/[\/\\]/).pop();
+        
+        document.getElementById('form-doc-filename').value = filename;
+        document.getElementById('form-doc-source-path').value = fullPath;
+        const preview = document.getElementById('form-doc-source-preview');
+        if (preview) {
+          preview.textContent = `Attached: ${fullPath}`;
+          preview.classList.remove('hidden');
+        }
+      }
+    } else {
+      alert('Native file browsing is available inside the Desktop App.');
+    }
+  } catch (err) {
+    console.error('File browse error:', err);
+  }
 }
 
 // Modal: Add Document
@@ -208,6 +370,12 @@ function openAddDocumentModal() {
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('form-doc-date').value = today;
   document.getElementById('form-doc-category').value = 'Payment / Invoice';
+  document.getElementById('form-doc-source-path').value = '';
+  const preview = document.getElementById('form-doc-source-preview');
+  if (preview) {
+    preview.textContent = '';
+    preview.classList.add('hidden');
+  }
   const customInput = document.getElementById('form-doc-category-custom');
   if (customInput) {
     customInput.value = '';
@@ -220,11 +388,9 @@ function openAddDocumentModal() {
 function closeAddDocumentModal() {
   document.getElementById('modal-document').classList.add('hidden');
   document.getElementById('document-form').reset();
-  const customInput = document.getElementById('form-doc-category-custom');
-  if (customInput) {
-    customInput.value = '';
-    customInput.classList.add('hidden');
-  }
+  document.getElementById('form-doc-source-path').value = '';
+  const preview = document.getElementById('form-doc-source-preview');
+  if (preview) preview.classList.add('hidden');
 }
 
 function handleCategorySelection(category) {
@@ -260,25 +426,45 @@ async function handleDocumentSubmit(e) {
     selectedCategory = customVal || 'General Document';
   }
 
-  const doc = {
-    category: selectedCategory,
-    filename: document.getElementById('form-doc-filename').value.trim(),
-    fileDate: document.getElementById('form-doc-date').value.trim(),
-    amount: parseFloat(document.getElementById('form-doc-amount').value) || 0,
-    notes: document.getElementById('form-doc-notes').value.trim()
-  };
+  const sourcePath = document.getElementById('form-doc-source-path').value.trim();
+  const filename = document.getElementById('form-doc-filename').value.trim();
+  const fileDate = document.getElementById('form-doc-date').value.trim();
+  const amount = parseFloat(document.getElementById('form-doc-amount').value) || 0;
+  const notes = document.getElementById('form-doc-notes').value.trim();
 
   try {
-    const res = await fetch(`/api/projects/${encodeURIComponent(CURRENT_DOSSIER_ID)}/documents`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(doc)
-    });
+    let res;
+    if (sourcePath) {
+      res = await fetch('/api/documents/attach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: CURRENT_DOSSIER_ID,
+          sourcePath,
+          filename,
+          category: selectedCategory,
+          fileDate,
+          amount,
+          notes
+        })
+      });
+    } else {
+      res = await fetch(`/api/projects/${encodeURIComponent(CURRENT_DOSSIER_ID)}/documents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: selectedCategory,
+          filename,
+          fileDate,
+          amount,
+          notes
+        })
+      });
+    }
 
     if (!res.ok) throw new Error('Failed to attach document');
     closeAddDocumentModal();
 
-    // Reload projects to update financial calculations, then refresh dossier
     await loadProjects();
     await openProjectDossier(CURRENT_DOSSIER_ID);
   } catch (err) {
@@ -286,11 +472,51 @@ async function handleDocumentSubmit(e) {
   }
 }
 
-async function deleteDocument(docId) {
-  if (!confirm('Are you sure you want to remove this document record from the binder?')) return;
+// --- EDIT DOCUMENT MODAL ---
+
+function openEditDocumentModal(docId) {
+  const doc = CURRENT_DOSSIER_DOCS.find(d => String(d.id) === String(docId));
+  if (!doc) return;
+
+  document.getElementById('edit-doc-id').value = doc.id;
+  document.getElementById('edit-doc-category').value = doc.category || 'Tender / Contract';
+  document.getElementById('edit-doc-filename').value = doc.filename || '';
+  document.getElementById('edit-doc-date').value = doc.file_date || '';
+  document.getElementById('edit-doc-amount').value = doc.amount || 0;
+  document.getElementById('edit-doc-notes').value = doc.notes || '';
+
+  document.getElementById('modal-edit-document').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeEditDocumentModal() {
+  document.getElementById('modal-edit-document').classList.add('hidden');
+  document.getElementById('edit-document-form').reset();
+}
+
+async function handleEditDocumentSubmit(e) {
+  e.preventDefault();
+  const docId = document.getElementById('edit-doc-id').value;
+  if (!docId) return;
+
+  const updates = {
+    category: document.getElementById('edit-doc-category').value,
+    filename: document.getElementById('edit-doc-filename').value.trim(),
+    fileDate: document.getElementById('edit-doc-date').value.trim(),
+    amount: parseFloat(document.getElementById('edit-doc-amount').value) || 0,
+    notes: document.getElementById('edit-doc-notes').value.trim()
+  };
+
   try {
-    const res = await fetch(`/api/documents/${docId}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete document');
+    const res = await fetch(`/api/documents/${encodeURIComponent(docId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+
+    if (!res.ok) throw new Error('Failed to update document');
+    closeEditDocumentModal();
+
     await loadProjects();
     await openProjectDossier(CURRENT_DOSSIER_ID);
   } catch (err) {
@@ -298,22 +524,26 @@ async function deleteDocument(docId) {
   }
 }
 
-function openSpineForCurrentProject() {
-  if (CURRENT_DOSSIER_ID) {
-    openSpineForProject(CURRENT_DOSSIER_ID);
-  }
+function confirmDeleteDocument(docId) {
+  showConfirmModal(
+    'Delete Document Record?',
+    'Are you sure you want to remove this document from the project binder? If it has an attached payment amount, project totals will recalculate automatically.',
+    async () => {
+      try {
+        const res = await fetch(`/api/documents/${docId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete document');
+        await loadProjects();
+        await openProjectDossier(CURRENT_DOSSIER_ID);
+      } catch (err) {
+        alert(`Error: ${err.message}`);
+      }
+    }
+  );
 }
 
-function openCurrentProjectFolder() {
-  if (CURRENT_DOSSIER_ID) {
-    openProjectFolder(CURRENT_DOSSIER_ID);
-  }
-}
-
-// --- PROJECT CREATION & DIRECT SPINE PRINT PROTOCOL ---
+// --- PROJECT CREATION, EDITING & DELETION ---
 
 function openNewProjectModal() {
-  // Suggest next code based on current count
   const yearShort = new Date().getFullYear().toString().slice(-2);
   const nextNum = String(PROJECTS_CACHE.length + 1).padStart(3, '0');
   document.getElementById('form-proj-id').value = `SS-${yearShort}-${nextNum}`;
@@ -355,18 +585,117 @@ async function handleProjectSubmit(e) {
 
     closeProjectModal();
     await loadProjects();
-
-    // PROTOCOL STEP: Immediately open the Spine Label Print Generator for this new project!
     openSpineForProject(newProject.id);
   } catch (err) {
     alert(`Error: ${err.message}`);
   }
 }
 
+// Edit Project
+function openEditProjectModal(projectId) {
+  const project = PROJECTS_CACHE.find(p => p.id === projectId);
+  if (!project) return;
+
+  document.getElementById('edit-proj-id').value = project.id;
+  document.getElementById('edit-proj-id-display').value = project.id;
+  document.getElementById('edit-proj-status').value = project.status || 'ACTIVE';
+  document.getElementById('edit-proj-title').value = project.title || '';
+  document.getElementById('edit-proj-client').value = project.client || '';
+  document.getElementById('edit-proj-site').value = project.site_address || '';
+  document.getElementById('edit-proj-amount').value = project.contract_amount || 0;
+  document.getElementById('edit-proj-currency').value = project.currency || 'LYD';
+  document.getElementById('edit-proj-payment').value = project.payment_status || 'Pending';
+  document.getElementById('edit-proj-start').value = project.start_date || '';
+  document.getElementById('edit-proj-end').value = project.end_date || '';
+  document.getElementById('edit-proj-remarks').value = project.remarks || '';
+
+  document.getElementById('modal-edit-project').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function openEditProjectForCurrent() {
+  if (CURRENT_DOSSIER_ID) openEditProjectModal(CURRENT_DOSSIER_ID);
+}
+
+function closeEditProjectModal() {
+  document.getElementById('modal-edit-project').classList.add('hidden');
+  document.getElementById('edit-project-form').reset();
+}
+
+async function handleEditProjectSubmit(e) {
+  e.preventDefault();
+  const id = document.getElementById('edit-proj-id').value;
+  if (!id) return;
+
+  const updates = {
+    status: document.getElementById('edit-proj-status').value,
+    title: document.getElementById('edit-proj-title').value.trim(),
+    client: document.getElementById('edit-proj-client').value.trim(),
+    site_address: document.getElementById('edit-proj-site').value.trim(),
+    contract_amount: parseFloat(document.getElementById('edit-proj-amount').value) || 0,
+    currency: document.getElementById('edit-proj-currency').value,
+    payment_status: document.getElementById('edit-proj-payment').value,
+    start_date: document.getElementById('edit-proj-start').value.trim(),
+    end_date: document.getElementById('edit-proj-end').value.trim(),
+    remarks: document.getElementById('edit-proj-remarks').value.trim()
+  };
+
+  try {
+    const res = await fetch(`/api/projects/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+
+    if (!res.ok) throw new Error('Failed to update project');
+    closeEditProjectModal();
+
+    await loadProjects();
+    if (CURRENT_DOSSIER_ID === id) {
+      await openProjectDossier(id);
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+}
+
+// Delete Project
+function confirmDeleteProject(projectId) {
+  const p = PROJECTS_CACHE.find(proj => proj.id === projectId);
+  const title = p ? p.title : projectId;
+  showConfirmModal(
+    `Delete Project ${projectId}?`,
+    `Are you sure you want to delete "${title}"? All document records and cloud 4G sync entries for this project will be deleted permanently.`,
+    async () => {
+      try {
+        const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete project');
+        await loadProjects();
+        if (CURRENT_DOSSIER_ID === projectId) {
+          switchView('projects');
+        }
+      } catch (err) {
+        alert(`Error: ${err.message}`);
+      }
+    }
+  );
+}
+
+function confirmDeleteCurrentProject() {
+  if (CURRENT_DOSSIER_ID) confirmDeleteProject(CURRENT_DOSSIER_ID);
+}
+
 // --- FOLDER LAUNCHERS ---
 
 async function openProjectFolder(projectId) {
   try {
+    if (window.desktopAPI && window.desktopAPI.openFolder) {
+      const p = PROJECTS_CACHE.find(proj => proj.id === projectId);
+      if (p && p.folder_path) {
+        await window.desktopAPI.openFolder(p.folder_path);
+        return;
+      }
+    }
     const res = await fetch('/api/projects/open-folder', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -379,8 +708,16 @@ async function openProjectFolder(projectId) {
   }
 }
 
+function openCurrentProjectFolder() {
+  if (CURRENT_DOSSIER_ID) openProjectFolder(CURRENT_DOSSIER_ID);
+}
+
 async function openArchiveFolderRoot() {
   try {
+    if (window.desktopAPI && window.desktopAPI.openFolder) {
+      await window.desktopAPI.openFolder('');
+      return;
+    }
     await fetch('/api/projects/open-folder', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -414,14 +751,23 @@ function openSpineForProject(code) {
   renderSpineView(code);
 }
 
+function openSpineForCurrentProject() {
+  if (CURRENT_DOSSIER_ID) openSpineForProject(CURRENT_DOSSIER_ID);
+}
+
 function renderSpineView(code) {
   CURRENT_SPINE_CODE = code;
   const project = PROJECTS_CACHE.find(p => p.id === code);
   if (!project) return;
 
+  const volSelect = document.getElementById('spine-volume-select');
+  const volLabel = volSelect ? volSelect.value : 'Main Dossier';
+
   document.getElementById('spine-display-code').textContent = project.id;
   document.getElementById('spine-display-title').textContent = project.title;
   document.getElementById('spine-display-client').textContent = `Client: ${project.client}`;
+  const volEl = document.getElementById('spine-display-volume');
+  if (volEl) volEl.textContent = volLabel.toUpperCase();
 
   const qrBox = document.getElementById('spine-qrcode-box');
   qrBox.innerHTML = '';
@@ -446,7 +792,6 @@ function renderSpineView(code) {
       qrBox.appendChild(img);
     }
   } catch (err) {
-    console.warn('QR render notice:', err);
     const img = document.createElement('img');
     img.src = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(mobileScanUrl)}`;
     img.alt = 'QR Code';
@@ -459,9 +804,17 @@ function updateSpineWidth(widthMm) {
   const container = document.getElementById('printable-spine-container');
   if (!container) return;
   if (widthMm === '70') {
-    container.className = "bg-white border-2 border-slate-900 rounded-lg p-8 shadow-xl flex items-center justify-between gap-8 w-full max-w-3xl";
+    container.className = "bg-white border-2 border-dashed border-slate-800 rounded-lg p-8 shadow-xl flex items-center justify-between gap-8 w-full max-w-3xl";
   } else {
-    container.className = "bg-white border-2 border-slate-900 rounded-lg p-6 shadow-xl flex items-center justify-between gap-8 w-full max-w-2xl";
+    container.className = "bg-white border-2 border-dashed border-slate-800 rounded-lg p-6 shadow-xl flex items-center justify-between gap-8 w-full max-w-2xl";
+  }
+}
+
+function triggerPrintSpine() {
+  if (window.desktopAPI && window.desktopAPI.printSpine) {
+    window.desktopAPI.printSpine();
+  } else {
+    window.print();
   }
 }
 
@@ -505,19 +858,19 @@ function renderToolsTable(tools) {
 
 async function triggerCloudSync() {
   const label = document.getElementById('sync-status-label');
-  label.textContent = "Syncing...";
+  if (label) label.textContent = "Syncing...";
   try {
     const res = await fetch('/api/sync-cloud', { method: 'POST' });
     const data = await res.json();
     if (data && data.success) {
-      label.textContent = `Synced (${data.projectsSynced}p, ${data.docsSynced}d)`;
+      if (label) label.textContent = `Synced (${data.projectsSynced}p, ${data.docsSynced}d)`;
     } else {
-      label.textContent = "Synced";
+      if (label) label.textContent = "Synced";
     }
   } catch (err) {
-    label.textContent = "Offline";
+    if (label) label.textContent = "Offline";
   }
   setTimeout(() => {
-    label.textContent = "Sync Cloud QR";
+    if (label) label.textContent = "Sync 4G Cloud QR";
   }, 3500);
 }

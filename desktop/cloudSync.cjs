@@ -95,6 +95,50 @@ const cloudSync = {
     }
   },
 
+  async deleteProject(projectId) {
+    if (!this.isConfigured()) return { skipped: true };
+    try {
+      const cleanId = String(projectId || '').trim().toUpperCase();
+      // Delete documents first
+      await fetch(`${config.supabaseUrl}/rest/v1/project_documents?project_id=eq.${encodeURIComponent(cleanId)}`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': config.supabaseKey,
+          'Authorization': `Bearer ${config.supabaseKey}`
+        }
+      });
+      // Delete project
+      const res = await fetch(`${config.supabaseUrl}/rest/v1/projects?id=eq.${encodeURIComponent(cleanId)}`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': config.supabaseKey,
+          'Authorization': `Bearer ${config.supabaseKey}`
+        }
+      });
+      return { success: res.ok };
+    } catch (err) {
+      console.warn('Cloud project delete notice:', err.message);
+      return { success: false, error: err.message };
+    }
+  },
+
+  async deleteDocument(docId, projectId) {
+    if (!this.isConfigured()) return { skipped: true };
+    try {
+      const res = await fetch(`${config.supabaseUrl}/rest/v1/project_documents?id=eq.${encodeURIComponent(docId)}`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': config.supabaseKey,
+          'Authorization': `Bearer ${config.supabaseKey}`
+        }
+      });
+      return { success: res.ok };
+    } catch (err) {
+      console.warn('Cloud document delete notice:', err.message);
+      return { success: false, error: err.message };
+    }
+  },
+
   async syncAll(projects, documentsGetter) {
     if (!this.isConfigured()) return { success: false, message: 'Cloud credentials not configured' };
     try {
