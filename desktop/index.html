@@ -7,12 +7,15 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="qrcode.min.js"></script>
   <style>
     body { font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; }
     .font-mono { font-family: 'JetBrains Mono', monospace; }
+    .font-title { font-family: 'Cairo', 'Plus Jakarta Sans', -apple-system, sans-serif; font-weight: 900; }
     @media print {
       @page {
         size: A4 portrait;
@@ -330,8 +333,8 @@
               </div>
               
               <!-- Project Title: Colossal Centerpiece (Occupies full vertical and horizontal space) -->
-              <div class="flex items-center justify-center text-center w-full py-0.5">
-                <h2 id="spine-display-title" class="text-[62px] font-black text-black leading-none tracking-normal text-center w-full block">السكن الفاخر</h2>
+              <div class="flex items-center justify-center text-center w-full py-0 my-auto">
+                <h2 id="spine-display-title" class="font-title text-[76px] font-black text-black leading-none tracking-tight text-center w-full block">السكن الفاخر</h2>
               </div>
               
               <!-- Bottom Row: Client & Location -->
