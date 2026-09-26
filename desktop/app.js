@@ -938,6 +938,10 @@ function renderSpineView(code) {
   document.getElementById('spine-display-code').textContent = project.id;
   document.getElementById('spine-display-title').textContent = project.title;
   document.getElementById('spine-display-client').textContent = `Client: ${project.client}`;
+  const siteEl = document.getElementById('spine-display-site');
+  if (siteEl) {
+    siteEl.textContent = project.site_address ? `• Site: ${project.site_address}` : '';
+  }
   const volEl = document.getElementById('spine-display-volume');
   if (volEl) volEl.textContent = volLabel.toUpperCase();
 
@@ -950,22 +954,22 @@ function renderSpineView(code) {
     if (typeof QRCode !== 'undefined') {
       new QRCode(qrBox, {
         text: mobileScanUrl,
-        width: 88,
-        height: 88,
+        width: 104,
+        height: 104,
         colorDark: '#000000',
         colorLight: '#FFFFFF',
         correctLevel: typeof QRCode.CorrectLevel !== 'undefined' ? QRCode.CorrectLevel.M : 0
       });
     } else {
       const img = document.createElement('img');
-      img.src = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(mobileScanUrl)}`;
+      img.src = `https://api.qrserver.com/v1/create-qr-code/?size=104x104&data=${encodeURIComponent(mobileScanUrl)}`;
       img.alt = 'QR Code';
       img.className = 'w-full h-full object-contain';
       qrBox.appendChild(img);
     }
   } catch (err) {
     const img = document.createElement('img');
-    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(mobileScanUrl)}`;
+    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=104x104&data=${encodeURIComponent(mobileScanUrl)}`;
     img.alt = 'QR Code';
     img.className = 'w-full h-full object-contain';
     qrBox.appendChild(img);
@@ -976,13 +980,13 @@ function updateSpineWidth(widthMm) {
   const container = document.getElementById('printable-spine-container');
   if (!container) return;
   if (widthMm === '70') {
-    container.style.width = '190mm';
+    container.style.width = '210mm';
     container.style.height = '70mm';
     container.className = "bg-white border-2 border-dashed border-black rounded-sm p-6 flex items-center justify-between gap-6 transition-all";
   } else {
-    container.style.width = '190mm';
+    container.style.width = '210mm';
     container.style.height = '50mm';
-    container.className = "bg-white border-2 border-dashed border-black rounded-sm p-4 flex items-center justify-between gap-5 transition-all";
+    container.className = "bg-white border-2 border-dashed border-black rounded-sm p-4 flex items-center justify-between gap-6 transition-all";
   }
 }
 
