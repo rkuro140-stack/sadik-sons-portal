@@ -782,6 +782,27 @@ const dbService = {
     DEFAULT_STORE.projects.forEach(p => this.addProject(p));
     DEFAULT_STORE.project_documents.forEach(d => this.addProjectDocument(d));
     return { success: true };
+  },
+
+  getDatabaseFilePath() {
+    if (useJson) {
+      if (!fs.existsSync(JSON_FILE)) saveStore();
+      return JSON_FILE;
+    }
+    if (fs.existsSync(DB_FILE)) return DB_FILE;
+    if (fs.existsSync(JSON_FILE)) return JSON_FILE;
+    saveStore();
+    return JSON_FILE;
+  },
+
+  getStorageInfo() {
+    const filePath = this.getDatabaseFilePath();
+    return {
+      engine: useJson ? 'Zero-Dependency JSON' : 'SQLite Database',
+      fileName: filePath ? path.basename(filePath) : 'database',
+      path: filePath,
+      archivePath: getArchiveBasePath()
+    };
   }
 };
 

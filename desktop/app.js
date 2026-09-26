@@ -14,6 +14,7 @@ let CONFIRM_CALLBACK = null;
 document.addEventListener('DOMContentLoaded', () => {
   loadProjects();
   loadTools();
+  loadSystemInfo();
 
   // Close menus on outside click
   document.addEventListener('click', (e) => {
@@ -24,6 +25,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+async function loadSystemInfo() {
+  try {
+    const res = await fetch('/api/info');
+    if (!res.ok) return;
+    const info = await res.json();
+    const dbLabel = document.getElementById('footer-db-label');
+    const pathLabel = document.getElementById('footer-archive-label');
+    if (dbLabel && info.fileName) dbLabel.textContent = `${info.fileName} (${info.engine})`;
+    if (pathLabel && info.archivePath) pathLabel.textContent = `${info.archivePath}`;
+  } catch (e) {}
+}
 
 // View Navigation
 function switchView(viewName) {
@@ -64,7 +77,12 @@ function closeDataMenu() {
 }
 
 function downloadBackup() {
-  window.open('/api/backup', '_blank');
+  const a = document.createElement('a');
+  a.href = '/api/backup';
+  a.setAttribute('download', `sadik_sons_backup_${new Date().toISOString().split('T')[0]}`);
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 function promptClearDemoData() {

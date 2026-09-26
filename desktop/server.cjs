@@ -276,13 +276,17 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, result);
       }
 
+      // GET /api/info
+      if (reqPath === '/api/info' && req.method === 'GET') {
+        return sendJson(res, 200, db.getStorageInfo());
+      }
+
       // GET /api/backup
       if (reqPath === '/api/backup' && req.method === 'GET') {
-        const jsonFile = path.join(DIR, 'sadik_sons_data.json');
-        const dbFile = path.join(DIR, 'sadik_sons.db');
-        const fileToSend = fs.existsSync(dbFile) ? dbFile : jsonFile;
-        if (fs.existsSync(fileToSend)) {
-          const filename = path.basename(fileToSend);
+        const fileToSend = db.getDatabaseFilePath();
+        if (fileToSend && fs.existsSync(fileToSend)) {
+          const ext = path.extname(fileToSend) || '.json';
+          const filename = `sadik_sons_backup_${new Date().toISOString().split('T')[0]}${ext}`;
           res.writeHead(200, {
             'Content-Type': 'application/octet-stream',
             'Content-Disposition': `attachment; filename="${filename}"`
