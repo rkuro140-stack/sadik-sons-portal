@@ -120,61 +120,31 @@ function initSqliteTables(db) {
 const DEFAULT_STORE = {
   projects: [
     {
-      id: 'SS-24-001',
-      title: 'Tripoli Commercial Center — HVAC & Piping',
-      client: 'Al-Naseem Contracting Group',
-      site_address: 'Hai Al-Andalus, Tripoli, Libya',
-      start_date: '15 Mar 2024',
-      end_date: '30 Nov 2024',
-      contract_amount: 185000,
-      currency: 'LYD',
-      paid_amount: 140000,
+      id: 'SSE-26-001',
+      title: 'السكن الفاخر',
+      client: 'Yomna abd alraheem saed hamad',
+      site_address: 'ابو هريدة',
+      start_date: '',
+      end_date: '',
+      contract_amount: 65000,
+      currency: 'EUR',
+      paid_amount: 52000,
       payment_status: 'Partial',
-      remarks: 'Phase 1 ducting approved by supervising engineer.',
+      remarks: '',
       status: 'ACTIVE',
-      created_at: '2024-03-15 09:00'
-    },
-    {
-      id: 'SS-24-002',
-      title: 'Palm City Luxury Residences — Chiller Overhaul',
-      client: 'Palm City Facility Management',
-      site_address: 'Janzour Seaside Road, Tripoli',
-      start_date: '01 May 2024',
-      end_date: '15 Dec 2024',
-      contract_amount: 95000,
-      currency: 'LYD',
-      paid_amount: 95000,
-      payment_status: 'Paid',
-      remarks: 'Compressor replacement completed on Chiller #2.',
-      status: 'ACTIVE',
-      created_at: '2024-05-01 10:00'
-    },
-    {
-      id: 'SS-23-014',
-      title: 'Al-Dahra Substation — Fire Suppression Retrofit',
-      client: 'GECOL (General Electric Company)',
-      site_address: 'Al-Dahra Sector, Tripoli',
-      start_date: '10 Aug 2023',
-      end_date: '25 Jan 2024',
-      contract_amount: 320000,
-      currency: 'LYD',
-      paid_amount: 288000,
-      payment_status: 'Retention Due',
-      remarks: 'Handover certificate issued Jan 2024.',
-      status: 'ARCHIVE',
-      created_at: '2023-08-10 11:00'
+      created_at: '2026-09-26 10:41'
     }
   ],
   project_documents: [
-    { id: 1, project_id: 'SS-24-001', filename: 'Tender_Offer_Signed_AlNaseem.pdf', category: 'Tender / Contract', file_date: '15 Mar 2024', amount: 185000, notes: 'Signed commercial offer' },
-    { id: 2, project_id: 'SS-24-001', filename: 'HVAC_Shop_Drawings_Rev2.dwg', category: 'Drawing / CAD', file_date: '04 Apr 2024', amount: 0, notes: 'Approved by supervising consultant' },
-    { id: 3, project_id: 'SS-24-001', filename: 'Invoice_Advance_Payment_01.pdf', category: 'Payment / Invoice', file_date: '18 Apr 2024', amount: 50000, notes: 'Mobilization advance check' },
-    { id: 4, project_id: 'SS-24-001', filename: 'Packing_List_Chiller_Valves_PL409.pdf', category: 'Packing List', file_date: '12 Jun 2024', amount: 0, notes: 'Italian valves customs cleared' },
-    { id: 5, project_id: 'SS-24-001', filename: 'Invoice_Interim_Payment_02.pdf', category: 'Payment / Invoice', file_date: '20 Jul 2024', amount: 90000, notes: 'Chiller piping milestone paid' },
-    { id: 6, project_id: 'SS-24-002', filename: 'Maintenance_Agreement_Signed.pdf', category: 'Tender / Contract', file_date: '01 May 2024', amount: 95000, notes: '12-month preventive contract' },
-    { id: 7, project_id: 'SS-24-002', filename: 'Full_Payment_Receipt.pdf', category: 'Payment / Invoice', file_date: '15 May 2024', amount: 95000, notes: '100% upfront bank transfer' },
-    { id: 8, project_id: 'SS-23-014', filename: 'GECOL_Award_Letter_Contract.pdf', category: 'Tender / Contract', file_date: '10 Aug 2023', amount: 320000, notes: 'Official ministry contract' },
-    { id: 9, project_id: 'SS-23-014', filename: 'Progress_Invoice_01_and_02.pdf', category: 'Payment / Invoice', file_date: '15 Dec 2023', amount: 288000, notes: '90% milestones paid' }
+    {
+      id: 1790412105199,
+      project_id: 'SSE-26-001',
+      filename: 'Advance_Payment_SSE-26-001.pdf',
+      category: 'Payment / Invoice',
+      file_date: '2026-09-26',
+      amount: 52000,
+      notes: 'Initial advance payment / mobilization deposit'
+    }
   ],
   tools: [
     { id: 'SS-TL-001', code: 'SS-TL-001', name: 'Hilti TE 70-ATC Rotary Hammer', brand: 'Hilti', model: 'TE 70-ATC (SDS Max)', category: 'Heavy Drills', serial: 'HLT-883921-23', shelf: 'Rack A-01', status: 'checked_out', assigned_to: 'Tariq Mansour', assigned_site: 'Tripoli Port Project', checkout_time: '2026-09-14 08:30', expected_return: '2026-09-22', condition: 'Good', icon: 'hammer' },
