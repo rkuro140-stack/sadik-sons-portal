@@ -710,7 +710,7 @@ function autoCalculateEditProjectPayment() {
 function openNewProjectModal() {
   const yearShort = new Date().getFullYear().toString().slice(-2);
   const nextNum = String(PROJECTS_CACHE.length + 1).padStart(3, '0');
-  document.getElementById('form-proj-id').value = `SS-${yearShort}-${nextNum}`;
+  document.getElementById('form-proj-id').value = `SSE-${yearShort}-${nextNum}`;
   document.getElementById('form-proj-amount').value = '';
   document.getElementById('form-proj-paid').value = '';
   document.getElementById('form-proj-payment').value = 'Pending';
