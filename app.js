@@ -12,60 +12,54 @@ const SUPABASE_CONFIG = {
 // Standard Offline / Fallback Project Registry with Filed Documents
 const LOCAL_REGISTRY = [
   {
-    id: "SS-24-001",
-    title: "Tripoli Commercial Center — HVAC & Piping",
-    client: "Al-Naseem Contracting Group",
-    site_address: "Hai Al-Andalus, Tripoli, Libya",
-    start_date: "15 Mar 2024",
-    end_date: "30 Nov 2024",
-    contract_amount: "185,000",
-    currency: "LYD",
-    paid_amount: "140,000",
+    id: "SSE-26-001",
+    title: "السكن الفاخر",
+    client: "Yomna abd alraheem saed hamad",
+    site_address: "ابو هريدة",
+    start_date: "26 Sep 2026",
+    end_date: "31 Dec 2026",
+    contract_amount: "65,000",
+    currency: "EUR",
+    paid_amount: "52,000",
     payment_status: "Partial",
-    remarks: "Phase 1 ducting approved by supervising engineer. Pressure test for chilled water risers completed successfully.",
+    remarks: "Initial contract signed and mobilization advance payment recorded.",
     status: "ACTIVE",
     documents: [
-      { filename: "Tender_Offer_Signed_AlNaseem.pdf", category: "Tender / Contract", file_date: "15 Mar 2024", amount: 185000, notes: "Signed commercial offer" },
-      { filename: "HVAC_Shop_Drawings_Rev2.dwg", category: "Drawing / CAD", file_date: "04 Apr 2024", amount: 0, notes: "Approved by supervising consultant" },
-      { filename: "Invoice_Advance_Payment_01.pdf", category: "Payment / Invoice", file_date: "18 Apr 2024", amount: 50000, notes: "Mobilization advance check" },
-      { filename: "Packing_List_Chiller_Valves_PL409.pdf", category: "Packing List", file_date: "12 Jun 2024", amount: 0, notes: "Italian valves customs cleared" },
-      { filename: "Invoice_Interim_Payment_02.pdf", category: "Payment / Invoice", file_date: "20 Jul 2024", amount: 90000, notes: "Chiller piping milestone paid" }
+      { filename: "Advance_Payment_SSE-26-001.pdf", category: "Payment / Invoice", file_date: "2026-09-26", amount: 52000, notes: "Initial advance payment / mobilization deposit" }
     ]
   },
   {
-    id: "SS-24-002",
-    title: "Palm City Luxury Residences — Chiller Overhaul",
-    client: "Palm City Facility Management",
-    site_address: "Janzour Seaside Road, Tripoli",
-    start_date: "01 May 2024",
-    end_date: "15 Dec 2024",
-    contract_amount: "95,000",
-    currency: "LYD",
-    paid_amount: "95,000",
-    payment_status: "Paid",
-    remarks: "Compressor replacement completed on Chiller #2. 12-month preventive maintenance contract signed.",
+    id: "SS-26-001",
+    title: "السكن الفاخر",
+    client: "Yomna abd alraheem saed hamad",
+    site_address: "ابو هريدة",
+    start_date: "26 Sep 2026",
+    end_date: "31 Dec 2026",
+    contract_amount: "65,000",
+    currency: "EUR",
+    paid_amount: "52,000",
+    payment_status: "Partial",
+    remarks: "Initial contract signed and mobilization advance payment recorded.",
     status: "ACTIVE",
     documents: [
-      { filename: "Maintenance_Agreement_Signed.pdf", category: "Tender / Contract", file_date: "01 May 2024", amount: 95000, notes: "12-month preventive contract" },
-      { filename: "Full_Payment_Receipt.pdf", category: "Payment / Invoice", file_date: "15 May 2024", amount: 95000, notes: "100% upfront bank transfer" }
+      { filename: "Advance_Payment_SSE-26-001.pdf", category: "Payment / Invoice", file_date: "2026-09-26", amount: 52000, notes: "Initial advance payment / mobilization deposit" }
     ]
   },
   {
-    id: "SS-23-014",
-    title: "Al-Dahra Substation — Fire Suppression Retrofit",
-    client: "GECOL (General Electric Company)",
-    site_address: "Al-Dahra Sector, Tripoli",
-    start_date: "10 Aug 2023",
-    end_date: "25 Jan 2024",
-    contract_amount: "320,000",
-    currency: "LYD",
-    paid_amount: "288,000",
-    payment_status: "Retention Due",
-    remarks: "Handover certificate issued Jan 2024. 10% retention (32,000 LYD) scheduled for release Dec 2024.",
-    status: "ARCHIVE",
+    id: "SS-26-007",
+    title: "السكن الفاخر",
+    client: "Yomna abd alraheem saed hamad",
+    site_address: "ابو هريدة",
+    start_date: "26 Sep 2026",
+    end_date: "31 Dec 2026",
+    contract_amount: "65,000",
+    currency: "EUR",
+    paid_amount: "52,000",
+    payment_status: "Partial",
+    remarks: "Initial contract signed and mobilization advance payment recorded.",
+    status: "ACTIVE",
     documents: [
-      { filename: "GECOL_Award_Letter_Contract.pdf", category: "Tender / Contract", file_date: "10 Aug 2023", amount: 320000, notes: "Official ministry contract" },
-      { filename: "Progress_Invoice_01_and_02.pdf", category: "Payment / Invoice", file_date: "15 Dec 2023", amount: 288000, notes: "90% milestones paid" }
+      { filename: "Advance_Payment_SSE-26-001.pdf", category: "Payment / Invoice", file_date: "2026-09-26", amount: 52000, notes: "Initial advance payment / mobilization deposit" }
     ]
   }
 ];
@@ -245,7 +239,8 @@ function renderNotFound(code) {
 // Render Mini Directory List
 function renderDirectoryList() {
   projectMiniList.innerHTML = "";
-  LOCAL_REGISTRY.forEach(p => {
+  const displayItems = LOCAL_REGISTRY.filter(p => p.id === "SSE-26-001");
+  displayItems.forEach(p => {
     const card = document.createElement("div");
     card.className = "mini-card";
     card.onclick = () => loadProject(p.id);
