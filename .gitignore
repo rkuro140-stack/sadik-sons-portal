@@ -4,3 +4,5 @@ desktop/*.db
 desktop/*.db-journal
 desktop/*.db-wal
 desktop/*.db-shm
+desktop/dist/
+

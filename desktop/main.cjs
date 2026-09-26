@@ -1,0 +1,190 @@
+/**
+ * Sadik Sons Enterprises — Desktop Main Process (Electron)
+ * Industrial & MEP Contracting Operations Suite
+ */
+const { app, BrowserWindow, ipcMain, shell, dialog, Menu } = require('electron');
+const path = require('path');
+const http = require('http');
+
+let mainWindow = null;
+const PORT = process.env.PORT || 3000;
+
+// Start internal offline server in-process if not already running
+function ensureInternalServer() {
+  try {
+    // Test if port 3000 is open
+    const req = http.get(`http://localhost:${PORT}/api/stats`, res => {
+      // Server already running
+    });
+    req.on('error', () => {
+      // Start server internally
+      require('./server.cjs');
+    });
+  } catch (err) {
+    require('./server.cjs');
+  }
+}
+
+function createWindow() {
+  const iconPath = process.platform === 'darwin'
+    ? path.join(__dirname, 'assets', 'icon.icns')
+    : path.join(__dirname, 'assets', 'icon.png');
+
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 850,
+    minWidth: 1024,
+    minHeight: 700,
+    title: 'Sadik Sons Enterprises — Office Management Suite',
+    icon: iconPath,
+    backgroundColor: '#F8FAFC',
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      webSecurity: true
+    }
+  });
+
+  // Load the office suite
+  mainWindow.loadURL(`http://localhost:${PORT}`);
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    mainWindow.focus();
+  });
+
+  // IPC: Open local hard drive folder in native OS Explorer / Finder
+  ipcMain.handle('open-folder', async (event, folderPath) => {
+    try {
+      if (folderPath) {
+        await shell.openPath(folderPath);
+        return { success: true };
+      }
+      return { success: false, error: 'Path not specified' };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // IPC: Native File Selector
+  ipcMain.handle('select-file', async (event, options = {}) => {
+    const res = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select Project Document or CAD Drawing',
+      properties: ['openFile'],
+      filters: [
+        { name: 'All Project Documents', extensions: ['pdf', 'dwg', 'dxf', 'doc', 'docx', 'xls', 'xlsx', 'png', 'jpg', 'zip'] },
+        { name: 'CAD Drawings (*.dwg, *.dxf)', extensions: ['dwg', 'dxf'] },
+        { name: 'PDF Documents (*.pdf)', extensions: ['pdf'] },
+        { name: 'All Files (*.*)', extensions: ['*'] }
+      ]
+    });
+    return res;
+  });
+
+  // IPC: Native Print
+  ipcMain.handle('print-spine', async () => {
+    mainWindow.webContents.print({
+      silent: false,
+      printBackground: true,
+      deviceName: ''
+    });
+  });
+
+  ipcMain.handle('get-app-version', () => app.getVersion());
+
+  setupAppMenu();
+}
+
+function setupAppMenu() {
+  const isMac = process.platform === 'darwin';
+  const template = [
+    ...(isMac ? [{
+      label: 'Sadik Sons Enterprises',
+      submenu: [
+        { role: 'about', label: 'About Sadik Sons Enterprises' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide', label: 'Hide Application' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit', label: 'Quit Sadik Sons Enterprises' }
+      ]
+    }] : []),
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Print Binder Spine Label',
+          accelerator: 'CmdOrCtrl+P',
+          click: () => {
+            if (mainWindow) mainWindow.webContents.print({ silent: false, printBackground: true });
+          }
+        },
+        { type: 'separator' },
+        isMac ? { role: 'close' } : { role: 'quit' }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'Open Cloud Portal (4G Scanner)',
+          click: async () => {
+            await shell.openExternal('https://sadik-sons-portal.pages.dev');
+          }
+        },
+        {
+          label: 'Supabase Cloud Database',
+          click: async () => {
+            await shell.openExternal('https://supabase.com/dashboard');
+          }
+        }
+      ]
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
+
+app.whenReady().then(() => {
+  ensureInternalServer();
+  createWindow();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
